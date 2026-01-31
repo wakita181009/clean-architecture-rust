@@ -36,9 +36,9 @@ pub struct JiraIssueResponse {
 }
 
 impl JiraIssueResponse {
-    /// Converts the API response to a domain entity.
+    /// Converts the API response to a domain entity, consuming self.
     /// Returns None if the response cannot be converted (e.g., unknown issue type or priority).
-    pub fn to_domain(&self) -> Option<JiraIssue> {
+    pub fn into_domain(self) -> Option<JiraIssue> {
         let id: i64 = self.id.parse().ok()?;
         let issue_type: JiraIssueType = self.fields.issuetype.name.parse().ok()?;
         let priority: JiraIssuePriority = self.fields.priority.name.parse().ok()?;
@@ -51,8 +51,8 @@ impl JiraIssueResponse {
         Some(JiraIssue::new(
             JiraIssueId::new(id),
             JiraProjectId::new(self.fields.project.id.parse().ok()?),
-            JiraIssueKey::new(&self.key),
-            &self.fields.summary,
+            JiraIssueKey::new(self.key),
+            self.fields.summary,
             description,
             issue_type,
             priority,

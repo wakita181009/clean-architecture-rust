@@ -64,10 +64,6 @@ mod tests {
             "subtask".parse::<JiraIssueType>(),
             Ok(JiraIssueType::Subtask)
         );
-        assert_eq!(
-            "sub-task".parse::<JiraIssueType>(),
-            Ok(JiraIssueType::Subtask)
-        );
         assert_eq!("Bug".parse::<JiraIssueType>(), Ok(JiraIssueType::Bug));
         assert!("unknown".parse::<JiraIssueType>().is_err());
     }

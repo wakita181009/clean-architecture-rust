@@ -1,4 +1,4 @@
-use super::DomainError;
+use crate::error::DomainError;
 use thiserror::Error;
 
 /// Errors specific to Jira domain operations.

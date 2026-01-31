@@ -264,6 +264,78 @@ Error
 | Repository Trait | `{Entity}Repository` | `JiraIssueRepository` |
 | Repository Impl | `{Trait}Impl` | `JiraIssueRepositoryImpl` |
 
+## DTO to Domain Conversion
+
+In DDD/Clean Architecture, DTOs (Data Transfer Objects) from external sources (API responses, DB rows) are converted to Domain Entities. Follow Rust naming conventions for these conversions:
+
+### Naming Rules
+
+| Method | Signature | Use Case |
+|--------|-----------|----------|
+| `into_*` | `fn into_domain(self) -> T` | Consumes self, transfers ownership (preferred for DTOs) |
+| `to_*` | `fn to_domain(&self) -> T` | Borrows self, creates a copy |
+
+### Why `into_domain` for DTOs
+
+DTOs are **temporary data carriers** that exist only to cross architectural boundaries:
+
+```
+API Response → JiraIssueResponse (DTO)
+                    ↓ into_domain() consumes DTO
+              JiraIssue (Domain Entity)
+
+DB Row → JiraIssueRow (DTO)
+              ↓ into_domain() consumes DTO
+         JiraIssue (Domain Entity)
+```
+
+**Benefits of `into_domain(self)`:**
+- **Semantic clarity**: DTOs are consumed after conversion, not reused
+- **Memory efficiency**: Avoids unnecessary `clone()` operations
+- **Rust idiom compliance**: `into_*` signals ownership transfer
+
+### Implementation Example
+
+```rust
+// Infrastructure layer: DB row to Domain entity
+impl JiraIssueRow {
+    pub fn into_domain(self) -> JiraIssue {
+        JiraIssue::new(
+            JiraIssueId::new(self.id),
+            JiraProjectId::new(self.project_id),
+            JiraIssueKey::new(self.key),  // ownership moved, no clone
+            self.summary,                  // ownership moved, no clone
+            // ...
+        )
+    }
+}
+
+// Infrastructure layer: API response to Domain entity
+impl JiraIssueResponse {
+    pub fn into_domain(self) -> Option<JiraIssue> {
+        // Convert and consume self
+    }
+}
+```
+
+### Exception: Copy Types
+
+For `Copy` types (enums with `#[derive(Copy)]`), both `to_*` and `into_*` work identically. For consistency, prefer `into_domain` for all DTO conversions:
+
+```rust
+#[derive(Debug, Clone, Copy)]
+pub enum JiraIssueTypeDb { Epic, Story, Task, ... }
+
+impl JiraIssueTypeDb {
+    pub fn into_domain(self) -> JiraIssueType {
+        match self {
+            Self::Epic => JiraIssueType::Epic,
+            // ...
+        }
+    }
+}
+```
+
 ## Implementation Checklist
 
 When implementing new features:

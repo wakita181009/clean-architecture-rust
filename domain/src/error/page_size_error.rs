@@ -1,3 +1,4 @@
+use super::DomainError;
 use thiserror::Error;
 
 /// Errors for PageSize validation.
@@ -9,6 +10,8 @@ pub enum PageSizeError {
     #[error("Page size must be at most 100, but was {value}")]
     AboveMaximum { value: i32 },
 }
+
+impl DomainError for PageSizeError {}
 
 impl PageSizeError {
     pub fn below_minimum(value: i32) -> Self {

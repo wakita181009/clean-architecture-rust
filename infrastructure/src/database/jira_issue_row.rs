@@ -20,15 +20,15 @@ pub struct JiraIssueRow {
 }
 
 impl JiraIssueRow {
-    pub fn to_domain(self) -> JiraIssue {
+    pub fn into_domain(self) -> JiraIssue {
         JiraIssue::new(
             JiraIssueId::new(self.id),
             JiraProjectId::new(self.project_id),
             JiraIssueKey::new(self.key),
             self.summary,
             self.description.map(|v| v.to_string()),
-            self.issue_type.to_domain(),
-            self.priority.to_domain(),
+            self.issue_type.into_domain(),
+            self.priority.into_domain(),
             self.created_at,
             self.updated_at,
         )
@@ -64,7 +64,7 @@ pub enum JiraIssueTypeDb {
 }
 
 impl JiraIssueTypeDb {
-    pub fn to_domain(self) -> JiraIssueType {
+    pub fn into_domain(self) -> JiraIssueType {
         match self {
             Self::Epic => JiraIssueType::Epic,
             Self::Story => JiraIssueType::Story,
@@ -97,7 +97,7 @@ pub enum JiraIssuePriorityDb {
 }
 
 impl JiraIssuePriorityDb {
-    pub fn to_domain(self) -> JiraIssuePriority {
+    pub fn into_domain(self) -> JiraIssuePriority {
         match self {
             Self::Highest => JiraIssuePriority::Highest,
             Self::High => JiraIssuePriority::High,

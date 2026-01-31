@@ -42,7 +42,7 @@ impl JiraIssueRepository for JiraIssueRepositoryImpl {
         .await
         .map_err(|e| JiraError::database_error_with_cause("Failed to fetch issues by IDs", e))?;
 
-        Ok(rows.into_iter().map(|row| row.to_domain()).collect())
+        Ok(rows.into_iter().map(|row| row.into_domain()).collect())
     }
 
     async fn list(
@@ -74,7 +74,7 @@ impl JiraIssueRepository for JiraIssueRepositoryImpl {
         .await
         .map_err(|e| JiraError::database_error_with_cause("Failed to fetch issues", e))?;
 
-        let items: Vec<JiraIssue> = rows.into_iter().map(|row| row.to_domain()).collect();
+        let items: Vec<JiraIssue> = rows.into_iter().map(|row| row.into_domain()).collect();
 
         Ok(Page::new(total_count.0 as i32, items))
     }

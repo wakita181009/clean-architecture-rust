@@ -68,18 +68,3 @@ impl From<JiraIssue> for JiraIssueGql {
         }
     }
 }
-
-impl From<&JiraIssue> for JiraIssueGql {
-    fn from(issue: &JiraIssue) -> Self {
-        Self {
-            id: issue.id.value(),
-            key: issue.key.value().to_string(),
-            summary: issue.summary.clone(),
-            description: issue.description.clone(),
-            issue_type: issue.issue_type.as_str().to_string(),
-            priority: issue.priority.as_str().to_string(),
-            created_at: issue.created_at,
-            updated_at: issue.updated_at,
-        }
-    }
-}

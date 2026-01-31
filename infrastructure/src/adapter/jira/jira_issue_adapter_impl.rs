@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use backoff::future::retry_notify;
 use backoff::ExponentialBackoff;
 use chrono::{DateTime, Utc};
 use futures::stream::BoxStream;
@@ -15,8 +16,8 @@ use super::jira_api_dto::{JiraSearchRequest, JiraSearchResponse};
 
 const MAX_RESULTS: i32 = 100;
 const API_CALL_DELAY_MS: u64 = 1000;
-const MAX_RETRY_ATTEMPTS: u32 = 3;
 const INITIAL_BACKOFF_MS: u64 = 500;
+const MAX_ELAPSED_SECS: u64 = 30;
 
 /// Configuration for Jira API client.
 #[derive(Debug, Clone)]
@@ -89,38 +90,27 @@ impl JiraIssueAdapterImpl {
         };
 
         let backoff = ExponentialBackoff {
-            max_elapsed_time: Some(Duration::from_secs(30)),
+            max_elapsed_time: Some(Duration::from_secs(MAX_ELAPSED_SECS)),
             initial_interval: Duration::from_millis(INITIAL_BACKOFF_MS),
             multiplier: 2.0,
             ..Default::default()
         };
 
-        let mut attempts = 0u32;
-        #[allow(unused_assignments)]
-        let mut last_error: JiraError = JiraError::api_error("Unknown error");
-
-        loop {
-            attempts += 1;
-
-            match self.do_fetch(&url, &request).await {
-                Ok(response) => return Ok(response),
-                Err(e) => {
-                    last_error = e;
-                    if attempts >= MAX_RETRY_ATTEMPTS {
-                        break;
-                    }
-
-                    let delay = backoff.initial_interval * 2u32.pow(attempts - 1);
-                    warn!(
-                        "Jira API request failed (attempt {}/{}), retrying in {:?}",
-                        attempts, MAX_RETRY_ATTEMPTS, delay
-                    );
-                    tokio::time::sleep(delay).await;
-                }
-            }
-        }
-
-        Err(last_error)
+        retry_notify(
+            backoff,
+            || async {
+                self.do_fetch(&url, &request)
+                    .await
+                    .map_err(backoff::Error::transient)
+            },
+            |err, duration| {
+                warn!(
+                    "Jira API request failed: {}, retrying in {:?}",
+                    err, duration
+                );
+            },
+        )
+        .await
     }
 
     /// Performs the actual HTTP request.
@@ -188,7 +178,7 @@ impl JiraIssuePort for JiraIssueAdapterImpl {
                         let issues: Vec<JiraIssue> = response
                             .issues
                             .into_iter()
-                            .filter_map(|issue| issue.to_domain())
+                            .filter_map(|issue| issue.into_domain())
                             .collect();
 
                         let next = if response.is_last {

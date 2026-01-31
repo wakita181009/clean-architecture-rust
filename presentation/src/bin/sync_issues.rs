@@ -6,7 +6,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use application::usecase::jira::JiraIssueSyncUseCaseImpl;
 use infrastructure::adapter::jira::{JiraApiConfig, JiraIssueAdapterImpl};
-use infrastructure::adapter::TransactionExecutorImpl;
 use infrastructure::config::DatabaseConfig;
 use infrastructure::repository::jira::{JiraIssueRepositoryImpl, JiraProjectRepositoryImpl};
 use presentation::cli::{run_sync_issues, SyncIssuesArgs};
@@ -55,14 +54,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let project_repository = Arc::new(JiraProjectRepositoryImpl::new(pool.clone()));
     let issue_repository = Arc::new(JiraIssueRepositoryImpl::new(pool.clone()));
     let jira_issue_port = Arc::new(JiraIssueAdapterImpl::new(jira_config));
-    let transaction_executor = Arc::new(TransactionExecutorImpl::new(pool.clone()));
 
     // Initialize use case
     let sync_usecase = Arc::new(JiraIssueSyncUseCaseImpl::new(
         project_repository,
         issue_repository,
         jira_issue_port,
-        transaction_executor,
     ));
 
     // Run sync

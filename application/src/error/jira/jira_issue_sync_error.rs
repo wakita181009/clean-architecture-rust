@@ -1,7 +1,7 @@
 use domain::error::JiraError;
 use thiserror::Error;
 
-use crate::error::{ApplicationError, TransactionError};
+use crate::error::ApplicationError;
 
 /// Represents errors that can occur when syncing Jira issues from external API.
 #[derive(Debug, Error)]
@@ -13,7 +13,7 @@ pub enum JiraIssueSyncError {
     IssueFetchFailed(#[source] JiraError),
 
     #[error("Failed to persist issues: {0}")]
-    IssuePersistFailed(#[source] TransactionError),
+    IssuePersistFailed(#[source] JiraError),
 }
 
 impl ApplicationError for JiraIssueSyncError {}

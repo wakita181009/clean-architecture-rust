@@ -8,7 +8,6 @@ use domain::port::jira::JiraIssuePort;
 use domain::repository::jira::{JiraIssueRepository, JiraProjectRepository};
 
 use crate::error::jira::JiraIssueSyncError;
-use crate::port::TransactionExecutor;
 
 /// Use case for syncing Jira issues from external API.
 #[async_trait]
@@ -27,48 +26,42 @@ pub trait JiraIssueSyncUseCase: Send + Sync {
 }
 
 /// Implementation of JiraIssueSyncUseCase.
-pub struct JiraIssueSyncUseCaseImpl<P, I, T, E>
+pub struct JiraIssueSyncUseCaseImpl<P, I, T>
 where
     P: JiraProjectRepository,
     I: JiraIssueRepository,
     T: JiraIssuePort,
-    E: TransactionExecutor,
 {
     jira_project_repository: Arc<P>,
     jira_issue_repository: Arc<I>,
     jira_issue_port: Arc<T>,
-    transaction_executor: Arc<E>,
 }
 
-impl<P, I, T, E> JiraIssueSyncUseCaseImpl<P, I, T, E>
+impl<P, I, T> JiraIssueSyncUseCaseImpl<P, I, T>
 where
     P: JiraProjectRepository,
     I: JiraIssueRepository,
     T: JiraIssuePort,
-    E: TransactionExecutor,
 {
     pub fn new(
         jira_project_repository: Arc<P>,
         jira_issue_repository: Arc<I>,
         jira_issue_port: Arc<T>,
-        transaction_executor: Arc<E>,
     ) -> Self {
         Self {
             jira_project_repository,
             jira_issue_repository,
             jira_issue_port,
-            transaction_executor,
         }
     }
 }
 
 #[async_trait]
-impl<P, I, T, E> JiraIssueSyncUseCase for JiraIssueSyncUseCaseImpl<P, I, T, E>
+impl<P, I, T> JiraIssueSyncUseCase for JiraIssueSyncUseCaseImpl<P, I, T>
 where
     P: JiraProjectRepository,
     I: JiraIssueRepository,
     T: JiraIssuePort,
-    E: TransactionExecutor,
 {
     async fn execute(&self, since: DateTime<Utc>) -> Result<i32, JiraIssueSyncError> {
         // 1. Fetch all project keys
@@ -92,10 +85,9 @@ where
 
             let batch_size = issues.len() as i32;
 
-            // 3. Persist issues within a transaction
-            let repository = Arc::clone(&self.jira_issue_repository);
-            self.transaction_executor
-                .execute_in_transaction(move || async move { repository.bulk_upsert(issues).await })
+            // 3. Persist issues (transaction is handled within bulk_upsert)
+            self.jira_issue_repository
+                .bulk_upsert(issues)
                 .await
                 .map_err(JiraIssueSyncError::IssuePersistFailed)?;
 
@@ -109,7 +101,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::TransactionError;
     use domain::entity::jira::{JiraIssue, JiraIssueBuilder};
     use domain::error::JiraError;
     use domain::value_object::jira::{
@@ -117,7 +108,6 @@ mod tests {
     };
     use domain::value_object::{Page, PageNumber, PageSize};
     use futures::stream::{self, BoxStream};
-    use std::future::Future;
     use std::sync::Mutex;
 
     struct MockJiraProjectRepository {
@@ -205,26 +195,6 @@ mod tests {
         }
     }
 
-    struct MockTransactionExecutor;
-
-    #[async_trait]
-    impl TransactionExecutor for MockTransactionExecutor {
-        async fn execute_in_transaction<T, E, F, Fut>(
-            &self,
-            operation: F,
-        ) -> Result<T, TransactionError>
-        where
-            T: Send + 'static,
-            E: std::error::Error + Send + Sync + 'static,
-            F: FnOnce() -> Fut + Send,
-            Fut: Future<Output = Result<T, E>> + Send,
-        {
-            operation()
-                .await
-                .map_err(|e| TransactionError::execution_failed_with_cause("Transaction failed", e))
-        }
-    }
-
     fn create_test_issue(id: i64) -> JiraIssue {
         JiraIssueBuilder::new()
             .id(JiraIssueId::new(id))
@@ -250,10 +220,8 @@ mod tests {
             vec![create_test_issue(3)],
         ];
         let issue_port = Arc::new(MockJiraIssuePort::new(issues));
-        let tx_executor = Arc::new(MockTransactionExecutor);
 
-        let usecase =
-            JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port, tx_executor);
+        let usecase = JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port);
 
         let result = usecase.execute(Utc::now()).await;
 
@@ -268,10 +236,8 @@ mod tests {
         )));
         let issue_repo = Arc::new(MockJiraIssueRepository::new(Ok(vec![])));
         let issue_port = Arc::new(MockJiraIssuePort::new(vec![]));
-        let tx_executor = Arc::new(MockTransactionExecutor);
 
-        let usecase =
-            JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port, tx_executor);
+        let usecase = JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port);
 
         let result = usecase.execute(Utc::now()).await;
 
