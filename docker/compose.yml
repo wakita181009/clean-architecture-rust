@@ -1,0 +1,11 @@
+name: clean-architecture-rust
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: always
+    ports:
+      - "6686:5432"
+    environment:
+      POSTGRES_USER: ca_rust
+      POSTGRES_PASSWORD: ca_rust
+      POSTGRES_DB: ca_rust

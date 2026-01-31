@@ -1,0 +1,47 @@
+[package]
+name = "infrastructure"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+application = { path = "../application" }
+
+# Async runtime
+async-trait.workspace = true
+futures.workspace = true
+tokio.workspace = true
+
+# Error handling
+thiserror.workspace = true
+
+# Date/Time
+chrono.workspace = true
+
+# Database (sqlx)
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "chrono",
+    "json",
+    "migrate",
+] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Retry/Resilience
+backoff = { version = "0.4", features = ["tokio"] }
+
+# Tracing/Logging
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
