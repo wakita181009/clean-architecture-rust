@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use clap::Args;
 use tracing::{error, info};
 
-use application::usecase::jira::JiraIssueSyncUseCase;
+use application::usecase::command::jira::JiraIssueSyncUseCase;
 
 /// CLI arguments for the sync-issues command.
 #[derive(Debug, Args)]

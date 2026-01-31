@@ -1,5 +1,60 @@
 # Common Patterns
 
+## CQRS Pattern
+
+### Command Repository (Domain Layer)
+
+```rust
+// domain/src/repository/jira/jira_issue_repository.rs
+#[async_trait]
+pub trait JiraIssueRepository: Send + Sync {
+    async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError>;
+}
+```
+
+### Query Repository (Application Layer)
+
+```rust
+// application/src/repository/jira/jira_issue_query_repository.rs
+#[async_trait]
+pub trait JiraIssueQueryRepository: Send + Sync {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+}
+```
+
+### DTO (Application Layer)
+
+```rust
+// application/src/dto/jira/jira_issue_dto.rs
+pub struct JiraIssueDto {
+    pub id: i64,
+    pub key: String,
+    pub summary: String,
+    pub description: Option<String>,
+    pub issue_type: JiraIssueType,    // Domain enums for type safety
+    pub priority: JiraIssuePriority,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+```
+
+### Query Repository Implementation (Infrastructure)
+
+```rust
+// infrastructure/src/repository/query/jira/jira_issue_query_repository_impl.rs
+#[async_trait]
+impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+        let rows: Vec<JiraIssueRow> = sqlx::query_as(...)
+            .fetch_all(&self.pool).await?;
+
+        // Direct conversion to DTO, bypassing Domain Entity
+        Ok(rows.into_iter().map(|row| row.into_dto()).collect())
+    }
+}
+```
+
 ## GraphQL Query (async-graphql)
 
 ```rust
@@ -15,85 +70,115 @@ impl JiraIssueQuery {
         loader.load_one(id.parse()?).await
     }
 
-    // List with pagination
+    // List with pagination (uses Query UseCase)
     async fn jira_issues(
         &self,
         ctx: &Context<'_>,
         page_number: Option<i32>,
         page_size: Option<i32>,
     ) -> Result<JiraIssueList> {
-        let usecase = ctx.data_unchecked::<Arc<dyn JiraIssueListUseCase>>();
+        let usecase = ctx.data_unchecked::<Arc<dyn JiraIssueListQueryUseCase>>();
         let result = usecase.execute(
             page_number.unwrap_or(1),
             page_size.unwrap_or(100),
         ).await?;
-        Ok(JiraIssueList::from_domain(result))
+        Ok(JiraIssueList::from_dto(result))
     }
 }
 ```
 
-## Repository Pattern
+## Repository Pattern (CQRS)
+
+### Command Repository (Domain Layer)
 
 ```rust
-// Trait (domain layer - no framework dependencies)
+// Trait (domain layer - for write operations)
 #[async_trait]
 pub trait JiraIssueRepository: Send + Sync {
-    async fn find_by_ids(&self, ids: &[JiraIssueId]) -> Result<Vec<JiraIssue>, JiraError>;
-    async fn list(&self, page_number: PageNumber, page_size: PageSize) -> Result<Page<JiraIssue>, JiraError>;
-    async fn bulk_upsert(&self, issues: &[JiraIssue]) -> Result<Vec<JiraIssue>, JiraError>;
+    async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError>;
 }
 
 // Implementation (infrastructure layer)
-pub struct JiraIssueRepositoryImpl {
-    pool: PgPool,
-}
+pub struct JiraIssueRepositoryImpl { pool: PgPool }
 
 #[async_trait]
 impl JiraIssueRepository for JiraIssueRepositoryImpl {
-    async fn find_by_ids(&self, ids: &[JiraIssueId]) -> Result<Vec<JiraIssue>, JiraError> {
-        let id_values: Vec<i64> = ids.iter().map(|id| id.value()).collect();
-
-        let rows = sqlx::query_as!(
-            JiraIssueRow,
-            "SELECT * FROM jira_issues WHERE id = ANY($1)",
-            &id_values
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| JiraError::DatabaseError(e.to_string()))?;
-
-        rows.into_iter()
-            .map(|row| row.try_into())
-            .collect()
+    async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError> {
+        let row = JiraIssueRow::from_domain(&issue);
+        sqlx::query(...).execute(&self.pool).await?;
+        Ok(issues)
     }
 }
 ```
 
-## UseCase Pattern
+### Query Repository (Application Layer)
+
+```rust
+// Trait (application layer - returns DTOs)
+#[async_trait]
+pub trait JiraIssueQueryRepository: Send + Sync {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+}
+
+// Implementation (infrastructure layer)
+pub struct JiraIssueQueryRepositoryImpl { pool: PgPool }
+
+#[async_trait]
+impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+        let rows: Vec<JiraIssueRow> = sqlx::query_as(...)
+            .fetch_all(&self.pool).await?;
+
+        // Direct to DTO (no Entity conversion)
+        Ok(rows.into_iter().map(|row| row.into_dto()).collect())
+    }
+}
+```
+
+## UseCase Pattern (CQRS)
+
+### Command UseCase
 
 ```rust
 // Trait (application layer)
 #[async_trait]
-pub trait JiraIssueFindByIdsUseCase: Send + Sync {
-    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssue>, JiraIssueFindByIdError>;
+pub trait JiraIssueSyncUseCase: Send + Sync {
+    async fn execute(&self, since: DateTime<Utc>) -> Result<i32, JiraIssueSyncError>;
 }
 
-// Implementation (application layer - no framework dependencies)
-pub struct JiraIssueFindByIdsUseCaseImpl<R: JiraIssueRepository> {
-    repository: R,
+// Implementation - uses Domain Repository
+pub struct JiraIssueSyncUseCaseImpl<P, I, T>
+where
+    P: JiraProjectRepository,
+    I: JiraIssueRepository,  // Domain layer trait
+    T: JiraIssuePort,
+{
+    project_repository: Arc<P>,
+    issue_repository: Arc<I>,
+    issue_port: Arc<T>,
+}
+```
+
+### Query UseCase
+
+```rust
+// Trait (application layer) - note "Query" suffix
+#[async_trait]
+pub trait JiraIssueFindByIdsQueryUseCase: Send + Sync {
+    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError>;
 }
 
-impl<R: JiraIssueRepository> JiraIssueFindByIdsUseCaseImpl<R> {
-    pub fn new(repository: R) -> Self {
-        Self { repository }
-    }
+// Implementation - uses Query Repository, returns DTO
+pub struct JiraIssueFindByIdsQueryUseCaseImpl<R: JiraIssueQueryRepository> {
+    repository: Arc<R>,
 }
 
 #[async_trait]
-impl<R: JiraIssueRepository> JiraIssueFindByIdsUseCase for JiraIssueFindByIdsUseCaseImpl<R> {
-    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssue>, JiraIssueFindByIdError> {
+impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCase for JiraIssueFindByIdsQueryUseCaseImpl<R> {
+    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError> {
         self.repository
-            .find_by_ids(&ids)
+            .find_by_ids(ids)
             .await
             .map_err(JiraIssueFindByIdError::IssueFetchFailed)
     }
@@ -205,22 +290,23 @@ impl TransactionExecutor for TransactionExecutorImpl {
 use async_graphql::dataloader::Loader;
 
 pub struct JiraIssueLoader {
-    usecase: Arc<dyn JiraIssueFindByIdsUseCase>,
+    usecase: Arc<dyn JiraIssueFindByIdsQueryUseCase>,  // Query UseCase
 }
 
 #[async_trait]
 impl Loader<i64> for JiraIssueLoader {
-    type Value = JiraIssue;
+    type Value = JiraIssue;  // GraphQL type (converted from DTO)
     type Error = Arc<JiraIssueFindByIdError>;
 
     async fn load(&self, keys: &[i64]) -> Result<HashMap<i64, Self::Value>, Self::Error> {
         let ids: Vec<JiraIssueId> = keys.iter().map(|&id| JiraIssueId::new(id)).collect();
 
-        let issues = self.usecase.execute(ids).await
+        let dtos = self.usecase.execute(ids).await
             .map_err(Arc::new)?;
 
-        Ok(issues.into_iter()
-            .map(|issue| (issue.id.value(), issue))
+        // Convert DTO to GraphQL type
+        Ok(dtos.into_iter()
+            .map(|dto| (dto.id, JiraIssue::from(dto)))
             .collect())
     }
 }

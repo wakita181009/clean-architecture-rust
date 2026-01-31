@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use domain::entity::jira::JiraIssue;
-use domain::repository::jira::JiraIssueRepository;
 use domain::value_object::{Page, PageNumber, PageSize};
 
+use crate::dto::jira::JiraIssueDto;
 use crate::error::jira::JiraIssueListError;
+use crate::repository::jira::JiraIssueQueryRepository;
 
 /// Use case for listing Jira issues with pagination.
 #[async_trait]
-pub trait JiraIssueListUseCase: Send + Sync {
+pub trait JiraIssueListQueryUseCase: Send + Sync {
     /// Lists Jira issues with the specified pagination parameters.
     ///
     /// # Arguments
@@ -23,15 +23,15 @@ pub trait JiraIssueListUseCase: Send + Sync {
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraIssue>, JiraIssueListError>;
+    ) -> Result<Page<JiraIssueDto>, JiraIssueListError>;
 }
 
 /// Implementation of JiraIssueListUseCase.
-pub struct JiraIssueListUseCaseImpl<R: JiraIssueRepository> {
+pub struct JiraIssueListQueryUseCaseImpl<R: JiraIssueQueryRepository> {
     jira_issue_repository: Arc<R>,
 }
 
-impl<R: JiraIssueRepository> JiraIssueListUseCaseImpl<R> {
+impl<R: JiraIssueQueryRepository> JiraIssueListQueryUseCaseImpl<R> {
     pub fn new(jira_issue_repository: Arc<R>) -> Self {
         Self {
             jira_issue_repository,
@@ -40,12 +40,12 @@ impl<R: JiraIssueRepository> JiraIssueListUseCaseImpl<R> {
 }
 
 #[async_trait]
-impl<R: JiraIssueRepository> JiraIssueListUseCase for JiraIssueListUseCaseImpl<R> {
+impl<R: JiraIssueQueryRepository> JiraIssueListQueryUseCase for JiraIssueListQueryUseCaseImpl<R> {
     async fn execute(
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraIssue>, JiraIssueListError> {
+    ) -> Result<Page<JiraIssueDto>, JiraIssueListError> {
         let valid_page_number =
             PageNumber::of(page_number).map_err(JiraIssueListError::InvalidPageNumber)?;
 
@@ -62,19 +62,16 @@ impl<R: JiraIssueRepository> JiraIssueListUseCase for JiraIssueListUseCaseImpl<R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::entity::jira::JiraIssueBuilder;
     use domain::error::JiraError;
-    use domain::value_object::jira::{
-        JiraIssueId, JiraIssueKey, JiraIssuePriority, JiraIssueType, JiraProjectId,
-    };
+    use domain::value_object::jira::{JiraIssueId, JiraIssuePriority, JiraIssueType};
     use std::sync::Mutex;
 
-    struct MockJiraIssueRepository {
-        list_result: Mutex<Option<Result<Page<JiraIssue>, JiraError>>>,
+    struct MockJiraIssueQueryRepository {
+        list_result: Mutex<Option<Result<Page<JiraIssueDto>, JiraError>>>,
     }
 
-    impl MockJiraIssueRepository {
-        fn new(list_result: Result<Page<JiraIssue>, JiraError>) -> Self {
+    impl MockJiraIssueQueryRepository {
+        fn new(list_result: Result<Page<JiraIssueDto>, JiraError>) -> Self {
             Self {
                 list_result: Mutex::new(Some(list_result)),
             }
@@ -82,11 +79,11 @@ mod tests {
     }
 
     #[async_trait]
-    impl JiraIssueRepository for MockJiraIssueRepository {
+    impl JiraIssueQueryRepository for MockJiraIssueQueryRepository {
         async fn find_by_ids(
             &self,
             _ids: Vec<JiraIssueId>,
-        ) -> Result<Vec<JiraIssue>, JiraError> {
+        ) -> Result<Vec<JiraIssueDto>, JiraError> {
             unimplemented!()
         }
 
@@ -94,42 +91,34 @@ mod tests {
             &self,
             _page_number: PageNumber,
             _page_size: PageSize,
-        ) -> Result<Page<JiraIssue>, JiraError> {
+        ) -> Result<Page<JiraIssueDto>, JiraError> {
             self.list_result
                 .lock()
                 .unwrap()
                 .take()
                 .expect("list_result already consumed")
         }
-
-        async fn bulk_upsert(
-            &self,
-            _issues: Vec<JiraIssue>,
-        ) -> Result<Vec<JiraIssue>, JiraError> {
-            unimplemented!()
-        }
     }
 
-    fn create_test_issue(id: i64) -> JiraIssue {
-        JiraIssueBuilder::new()
-            .id(JiraIssueId::new(id))
-            .project_id(JiraProjectId::new(1))
-            .key(JiraIssueKey::new(format!("TEST-{}", id)))
-            .summary(format!("Test Issue {}", id))
-            .issue_type(JiraIssueType::Task)
-            .priority(JiraIssuePriority::Medium)
-            .created_at(chrono::Utc::now())
-            .updated_at(chrono::Utc::now())
-            .build()
-            .unwrap()
+    fn create_test_dto(id: i64) -> JiraIssueDto {
+        JiraIssueDto::new(
+            id,
+            format!("TEST-{}", id),
+            format!("Test Issue {}", id),
+            None,
+            JiraIssueType::Task,
+            JiraIssuePriority::Medium,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
     }
 
     #[tokio::test]
     async fn execute_should_return_page_of_issues_with_valid_pagination() {
-        let issues: Vec<JiraIssue> = (1..=10).map(create_test_issue).collect();
-        let expected_page = Page::new(100, issues);
-        let repository = Arc::new(MockJiraIssueRepository::new(Ok(expected_page.clone())));
-        let usecase = JiraIssueListUseCaseImpl::new(repository);
+        let dtos: Vec<JiraIssueDto> = (1..=10).map(create_test_dto).collect();
+        let expected_page = Page::new(100, dtos);
+        let repository = Arc::new(MockJiraIssueQueryRepository::new(Ok(expected_page.clone())));
+        let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
 
         let result = usecase.execute(1, 10).await;
 
@@ -141,8 +130,8 @@ mod tests {
 
     #[tokio::test]
     async fn execute_should_return_invalid_page_number_when_page_number_is_zero() {
-        let repository = Arc::new(MockJiraIssueRepository::new(Ok(Page::empty())));
-        let usecase = JiraIssueListUseCaseImpl::new(repository);
+        let repository = Arc::new(MockJiraIssueQueryRepository::new(Ok(Page::empty())));
+        let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
 
         let result = usecase.execute(0, 10).await;
 
@@ -155,8 +144,8 @@ mod tests {
 
     #[tokio::test]
     async fn execute_should_return_invalid_page_size_when_page_size_is_zero() {
-        let repository = Arc::new(MockJiraIssueRepository::new(Ok(Page::empty())));
-        let usecase = JiraIssueListUseCaseImpl::new(repository);
+        let repository = Arc::new(MockJiraIssueQueryRepository::new(Ok(Page::empty())));
+        let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
 
         let result = usecase.execute(1, 0).await;
 
@@ -169,8 +158,8 @@ mod tests {
 
     #[tokio::test]
     async fn execute_should_return_invalid_page_size_when_page_size_exceeds_maximum() {
-        let repository = Arc::new(MockJiraIssueRepository::new(Ok(Page::empty())));
-        let usecase = JiraIssueListUseCaseImpl::new(repository);
+        let repository = Arc::new(MockJiraIssueQueryRepository::new(Ok(Page::empty())));
+        let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
 
         let result = usecase.execute(1, 101).await;
 
@@ -183,10 +172,10 @@ mod tests {
 
     #[tokio::test]
     async fn execute_should_return_issue_fetch_failed_when_repository_fails() {
-        let repository = Arc::new(MockJiraIssueRepository::new(Err(
+        let repository = Arc::new(MockJiraIssueQueryRepository::new(Err(
             JiraError::database_error("Connection failed"),
         )));
-        let usecase = JiraIssueListUseCaseImpl::new(repository);
+        let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
 
         let result = usecase.execute(1, 10).await;
 

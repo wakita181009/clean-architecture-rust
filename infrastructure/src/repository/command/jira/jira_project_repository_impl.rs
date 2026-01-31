@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 
+use application::repository::jira::JiraProjectRepository;
 use domain::error::JiraError;
-use domain::repository::jira::JiraProjectRepository;
 use domain::value_object::jira::JiraProjectKey;
 
 use crate::database::JiraProjectRow;
 
-/// PostgreSQL implementation of JiraProjectRepository using sqlx.
+/// PostgreSQL implementation of JiraProjectQueryRepository using sqlx.
 pub struct JiraProjectRepositoryImpl {
     pool: PgPool,
 }

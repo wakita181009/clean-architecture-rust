@@ -73,39 +73,51 @@ domain/
 
 ### 2. Application Layer (`application/`)
 
-**Responsibility**: Use case implementation, transaction boundary definition, application-specific error handling.
+**Responsibility**: Use case implementation, transaction boundary definition, application-specific error handling. Implements **CQRS pattern** with separate Command and Query paths.
 
 ```
 application/
+├── usecase/          # Application use cases (CQRS pattern)
+│   ├── command/      # Write operations
+│   │   └── jira/
+│   │       └── jira_issue_sync_usecase.rs
+│   └── query/        # Read operations
+│       └── jira/
+│           ├── jira_issue_find_by_ids_query_usecase.rs
+│           └── jira_issue_list_query_usecase.rs
+├── repository/       # Query repository traits (returns DTOs)
+│   └── jira/
+│       └── jira_issue_query_repository.rs
+├── dto/              # Data Transfer Objects for queries
+│   └── jira/
+│       └── jira_issue_dto.rs
 ├── port/             # Application ports (traits for infrastructure)
 │   └── transaction_executor.rs
-├── error/            # Application-specific errors
-│   ├── mod.rs
-│   ├── transaction_error.rs
-│   └── jira/
-│       ├── jira_issue_sync_error.rs
-│       ├── jira_issue_find_by_id_error.rs
-│       └── jira_issue_list_error.rs
-└── usecase/          # Application use cases (trait + impl)
+└── error/            # Application-specific errors
+    ├── mod.rs
+    ├── transaction_error.rs
     └── jira/
-        ├── jira_issue_sync_usecase.rs
-        ├── jira_issue_find_by_ids_usecase.rs
-        └── jira_issue_list_usecase.rs
+        ├── jira_issue_sync_error.rs
+        ├── jira_issue_find_by_id_error.rs
+        └── jira_issue_list_error.rs
 ```
 
 ### 3. Infrastructure Layer (`infrastructure/`)
 
-**Responsibility**: External system integration implementation.
+**Responsibility**: External system integration implementation. Implements both Command and Query repositories.
 
 ```
 infrastructure/
 ├── adapter/          # Port implementations
 │   ├── transaction_executor_impl.rs
 │   └── jira/         # JiraIssueAdapterImpl, JiraApiDto
-├── repository/       # Repository implementations
-│   └── jira/         # JiraIssueRepositoryImpl, JiraProjectRepositoryImpl
+├── repository/       # Repository implementations (CQRS)
+│   ├── command/      # Write operations
+│   │   └── jira/     # JiraIssueRepositoryImpl, JiraProjectRepositoryImpl
+│   └── query/        # Read operations
+│       └── jira/     # JiraIssueQueryRepositoryImpl
 ├── config/           # DatabaseConfig
-└── database/         # Row structs for SQLx mapping
+└── database/         # Row structs for SQLx mapping (with into_dto for queries)
 ```
 
 ### 4. Presentation Layer (`presentation/`)
@@ -252,17 +264,81 @@ Error
         └── IssuePersistFailed (wraps TransactionError)
 ```
 
+## CQRS Pattern
+
+This project implements **CQRS (Command Query Responsibility Segregation)** to separate read and write concerns.
+
+### Command Side (Write Operations)
+
+- **Repository traits** defined in **Domain layer** (`domain/repository/`)
+- Works with **Domain Entities** (`JiraIssue`)
+- Examples: `JiraIssueRepository::bulk_upsert()`
+
+```rust
+// Domain layer: Command repository
+#[async_trait]
+pub trait JiraIssueRepository: Send + Sync {
+    async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError>;
+}
+```
+
+### Query Side (Read Operations)
+
+- **Repository traits** defined in **Application layer** (`application/repository/`)
+- Returns **DTOs** directly (`JiraIssueDto`), bypassing Domain Entities for efficiency
+- Query UseCases have `Query` suffix: `JiraIssueFindByIdsQueryUseCase`
+
+```rust
+// Application layer: Query repository (returns DTO, not Entity)
+#[async_trait]
+pub trait JiraIssueQueryRepository: Send + Sync {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+}
+
+// Application layer: DTO for read operations
+pub struct JiraIssueDto {
+    pub id: i64,
+    pub key: String,
+    pub summary: String,
+    pub issue_type: JiraIssueType,  // Uses domain enums for type safety
+    pub priority: JiraIssuePriority,
+    // ...
+}
+```
+
+### Why CQRS?
+
+| Concern | Command | Query |
+|---------|---------|-------|
+| **Data Model** | Domain Entity (rich) | DTO (flat, read-optimized) |
+| **Repository Location** | Domain layer | Application layer |
+| **Validation** | Full domain rules | None (read-only) |
+| **Performance** | Consistency priority | Read optimization |
+
+### Data Flow
+
+```
+Command: API/CLI → UseCase → Domain Entity → Repository (Domain) → DB
+Query:   API     → UseCase → DTO ← Repository (Application) ← DB
+                              ↑
+                        (no Entity conversion, direct mapping)
+```
+
 ## Naming Conventions
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| UseCase Trait | `{Entity}{Action}UseCase` | `JiraIssueSyncUseCase` |
-| UseCase Impl | `{Trait}Impl` | `JiraIssueSyncUseCaseImpl` |
+| Command UseCase Trait | `{Entity}{Action}UseCase` | `JiraIssueSyncUseCase` |
+| Query UseCase Trait | `{Entity}{Action}QueryUseCase` | `JiraIssueListQueryUseCase` |
+| UseCase Impl | `{Trait}Impl` | `JiraIssueSyncUseCaseImpl`, `JiraIssueListQueryUseCaseImpl` |
 | Port (Domain) | `{Entity}Port` | `JiraIssuePort` |
 | Port (Application) | `{Concern}Executor` | `TransactionExecutor` |
 | Adapter | `{Entity}AdapterImpl` | `JiraIssueAdapterImpl` |
-| Repository Trait | `{Entity}Repository` | `JiraIssueRepository` |
-| Repository Impl | `{Trait}Impl` | `JiraIssueRepositoryImpl` |
+| Command Repository Trait | `{Entity}Repository` | `JiraIssueRepository` |
+| Query Repository Trait | `{Entity}QueryRepository` | `JiraIssueQueryRepository` |
+| Repository Impl | `{Trait}Impl` | `JiraIssueRepositoryImpl`, `JiraIssueQueryRepositoryImpl` |
+| DTO | `{Entity}Dto` | `JiraIssueDto` |
 
 ## DTO to Domain Conversion
 

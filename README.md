@@ -14,6 +14,7 @@ A sample Rust application demonstrating **Clean Architecture** (Hexagonal Archit
 This application showcases:
 
 - **Clean Architecture** with proper layer separation and dependency inversion
+- **CQRS Pattern** - Command/Query responsibility segregation with separate read/write paths
 - **Idiomatic Error Handling** using Rust's `Result` type with custom error enums
 - **Framework Independence** - Business logic is testable without external dependencies
 - **Jira API Integration** - CLI command that syncs Jira issues to PostgreSQL
@@ -103,26 +104,43 @@ async fn execute(&self, ...) -> Result<Page<JiraIssue>, JiraIssueListError> {
 }
 ```
 
+### CQRS Pattern
+
+Separate read (Query) and write (Command) operations:
+
+```rust
+// Command: Write operations use Domain Entities
+#[async_trait]
+pub trait JiraIssueRepository: Send + Sync {  // Domain layer
+    async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError>;
+}
+
+// Query: Read operations return DTOs directly (bypass Entity for efficiency)
+#[async_trait]
+pub trait JiraIssueQueryRepository: Send + Sync {  // Application layer
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+}
+
+// Query UseCase returns DTO, not Entity
+pub struct JiraIssueListQueryUseCaseImpl<R: JiraIssueQueryRepository> {
+    repository: Arc<R>,
+}
+```
+
 ### Trait-based Dependency Injection
 
 ```rust
-// Domain: Define repository trait
-#[async_trait]
-pub trait JiraIssueRepository: Send + Sync {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssue>, JiraError>;
-    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssue>, JiraError>;
-}
-
 // Application: UseCase depends on trait, not implementation
-pub struct JiraIssueListUseCaseImpl<R: JiraIssueRepository> {
+pub struct JiraIssueListQueryUseCaseImpl<R: JiraIssueQueryRepository> {
     repository: Arc<R>,
 }
 
 // Infrastructure: Implement trait
-pub struct JiraIssueRepositoryImpl { pool: PgPool }
+pub struct JiraIssueQueryRepositoryImpl { pool: PgPool }
 
 #[async_trait]
-impl JiraIssueRepository for JiraIssueRepositoryImpl { ... }
+impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl { ... }
 ```
 
 ### Streaming with BoxStream
@@ -244,19 +262,25 @@ clean-architecture-rust/
 │   └── src/
 │       ├── entity/jira/        # JiraIssue entity
 │       ├── value_object/       # PageNumber, PageSize, JiraIssueId, etc.
-│       ├── repository/jira/    # Repository traits
+│       ├── repository/jira/    # Command repository traits (JiraIssueRepository)
 │       ├── port/jira/          # External API port traits
 │       └── error/              # Domain errors
 │
-├── application/                # Use cases
+├── application/                # Use cases (CQRS pattern)
 │   └── src/
-│       ├── usecase/jira/       # JiraIssueListUseCase, JiraIssueSyncUseCase
+│       ├── usecase/
+│       │   ├── command/jira/   # JiraIssueSyncUseCase (write operations)
+│       │   └── query/jira/     # JiraIssueFindByIdsQueryUseCase, JiraIssueListQueryUseCase
+│       ├── repository/jira/    # Query repository traits (JiraIssueQueryRepository)
+│       ├── dto/jira/           # JiraIssueDto (read-only data for queries)
 │       ├── port/               # TransactionExecutor trait
 │       └── error/              # Application errors
 │
 ├── infrastructure/             # External integrations
 │   └── src/
-│       ├── repository/jira/    # sqlx implementations
+│       ├── repository/
+│       │   ├── command/jira/   # JiraIssueRepositoryImpl (write)
+│       │   └── query/jira/     # JiraIssueQueryRepositoryImpl (read)
 │       ├── adapter/jira/       # Jira REST API client (reqwest)
 │       ├── database/           # DB row types and mappings
 │       └── config/             # DatabaseConfig

@@ -4,11 +4,13 @@ use clap::Parser;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use application::usecase::jira::JiraIssueSyncUseCaseImpl;
+use application::usecase::command::jira::JiraIssueSyncUseCaseImpl;
 use infrastructure::adapter::jira::{JiraApiConfig, JiraIssueAdapterImpl};
 use infrastructure::config::DatabaseConfig;
-use infrastructure::repository::jira::{JiraIssueRepositoryImpl, JiraProjectRepositoryImpl};
-use presentation::cli::{run_sync_issues, SyncIssuesArgs};
+use infrastructure::repository::command::jira::{
+    JiraIssueRepositoryImpl, JiraProjectRepositoryImpl,
+};
+use presentation::cli::{SyncIssuesArgs, run_sync_issues};
 
 /// CLI tool for syncing Jira issues from the Jira API.
 #[derive(Parser, Debug)]
@@ -34,8 +36,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Initialize database connection
-    let db_config = DatabaseConfig::from_env()
-        .map_err(|e| format!("Failed to load database config: {}", e))?;
+    let db_config =
+        DatabaseConfig::from_env().map_err(|e| format!("Failed to load database config: {}", e))?;
 
     let pool = db_config.create_pool().await?;
     info!("Database connection pool created");
@@ -47,8 +49,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Database migrations completed");
 
     // Initialize Jira API client
-    let jira_config = JiraApiConfig::from_env()
-        .map_err(|e| format!("Failed to load Jira API config: {}", e))?;
+    let jira_config =
+        JiraApiConfig::from_env().map_err(|e| format!("Failed to load Jira API config: {}", e))?;
 
     // Initialize repositories and adapters
     let project_repository = Arc::new(JiraProjectRepositoryImpl::new(pool.clone()));

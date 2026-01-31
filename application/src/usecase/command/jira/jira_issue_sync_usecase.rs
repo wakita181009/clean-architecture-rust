@@ -5,9 +5,10 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 
 use domain::port::jira::JiraIssuePort;
-use domain::repository::jira::{JiraIssueRepository, JiraProjectRepository};
+use domain::repository::jira::JiraIssueRepository;
 
 use crate::error::jira::JiraIssueSyncError;
+use crate::repository::jira::JiraProjectRepository;
 
 /// Use case for syncing Jira issues from external API.
 #[async_trait]
@@ -106,7 +107,6 @@ mod tests {
     use domain::value_object::jira::{
         JiraIssueId, JiraIssueKey, JiraIssuePriority, JiraIssueType, JiraProjectId, JiraProjectKey,
     };
-    use domain::value_object::{Page, PageNumber, PageSize};
     use futures::stream::{self, BoxStream};
     use std::sync::Mutex;
 
@@ -147,25 +147,7 @@ mod tests {
 
     #[async_trait]
     impl JiraIssueRepository for MockJiraIssueRepository {
-        async fn find_by_ids(
-            &self,
-            _ids: Vec<JiraIssueId>,
-        ) -> Result<Vec<JiraIssue>, JiraError> {
-            unimplemented!()
-        }
-
-        async fn list(
-            &self,
-            _page_number: PageNumber,
-            _page_size: PageSize,
-        ) -> Result<Page<JiraIssue>, JiraError> {
-            unimplemented!()
-        }
-
-        async fn bulk_upsert(
-            &self,
-            issues: Vec<JiraIssue>,
-        ) -> Result<Vec<JiraIssue>, JiraError> {
+        async fn bulk_upsert(&self, issues: Vec<JiraIssue>) -> Result<Vec<JiraIssue>, JiraError> {
             self.bulk_upsert_result
                 .lock()
                 .unwrap()

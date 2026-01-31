@@ -1,7 +1,9 @@
 use async_graphql::{Object, ID};
 use chrono::{DateTime, Utc};
 
-use domain::entity::jira::JiraIssue;
+use application::dto::jira::JiraIssueDto;
+
+use super::{JiraIssuePriorityGql, JiraIssueTypeGql};
 
 /// GraphQL representation of a Jira issue.
 #[derive(Clone)]
@@ -10,8 +12,8 @@ pub struct JiraIssueGql {
     pub key: String,
     pub summary: String,
     pub description: Option<String>,
-    pub issue_type: String,
-    pub priority: String,
+    pub issue_type: JiraIssueTypeGql,
+    pub priority: JiraIssuePriorityGql,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -35,12 +37,12 @@ impl JiraIssueGql {
     }
 
     #[graphql(name = "issueType")]
-    async fn issue_type(&self) -> &str {
-        &self.issue_type
+    async fn issue_type(&self) -> JiraIssueTypeGql {
+        self.issue_type
     }
 
-    async fn priority(&self) -> &str {
-        &self.priority
+    async fn priority(&self) -> JiraIssuePriorityGql {
+        self.priority
     }
 
     #[graphql(name = "createdAt")]
@@ -54,17 +56,17 @@ impl JiraIssueGql {
     }
 }
 
-impl From<JiraIssue> for JiraIssueGql {
-    fn from(issue: JiraIssue) -> Self {
+impl From<JiraIssueDto> for JiraIssueGql {
+    fn from(dto: JiraIssueDto) -> Self {
         Self {
-            id: issue.id.value(),
-            key: issue.key.value().to_string(),
-            summary: issue.summary,
-            description: issue.description,
-            issue_type: issue.issue_type.as_str().to_string(),
-            priority: issue.priority.as_str().to_string(),
-            created_at: issue.created_at,
-            updated_at: issue.updated_at,
+            id: dto.id,
+            key: dto.key,
+            summary: dto.summary,
+            description: dto.description,
+            issue_type: dto.issue_type.into(),
+            priority: dto.priority.into(),
+            created_at: dto.created_at,
+            updated_at: dto.updated_at,
         }
     }
 }

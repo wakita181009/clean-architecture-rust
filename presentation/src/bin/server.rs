@@ -3,23 +3,21 @@ use std::sync::Arc;
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
+    Router,
     extract::State,
     http::Method,
     response::{Html, IntoResponse},
     routing::{get, post},
-    Router,
 };
 use clap::Parser;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use application::usecase::jira::{
-    JiraIssueFindByIdsUseCaseImpl, JiraIssueListUseCaseImpl,
-};
+use application::usecase::query::jira::{JiraIssueFindByIdsQueryUseCaseImpl, JiraIssueListQueryUseCaseImpl};
 use infrastructure::config::DatabaseConfig;
-use infrastructure::repository::jira::JiraIssueRepositoryImpl;
-use presentation::api::graphql::{build_schema, AppSchema};
+use infrastructure::repository::query::jira::JiraIssueQueryRepositoryImpl;
+use presentation::api::graphql::{AppSchema, build_schema};
 
 /// GraphQL server for Jira issue management.
 #[derive(Parser, Debug)]
@@ -50,8 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Initialize database connection
-    let db_config = DatabaseConfig::from_env()
-        .map_err(|e| format!("Failed to load database config: {}", e))?;
+    let db_config =
+        DatabaseConfig::from_env().map_err(|e| format!("Failed to load database config: {}", e))?;
 
     let pool = db_config.create_pool().await?;
     info!("Database connection pool created");
@@ -63,11 +61,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Database migrations completed");
 
     // Initialize repositories
-    let issue_repository = Arc::new(JiraIssueRepositoryImpl::new(pool.clone()));
+    let issue_repository = Arc::new(JiraIssueQueryRepositoryImpl::new(pool.clone()));
 
     // Initialize use cases
-    let find_by_ids_usecase = Arc::new(JiraIssueFindByIdsUseCaseImpl::new(issue_repository.clone()));
-    let list_usecase = Arc::new(JiraIssueListUseCaseImpl::new(issue_repository.clone()));
+    let find_by_ids_usecase =
+        Arc::new(JiraIssueFindByIdsQueryUseCaseImpl::new(issue_repository.clone()));
+    let list_usecase = Arc::new(JiraIssueListQueryUseCaseImpl::new(issue_repository.clone()));
 
     // Build GraphQL schema
     let schema = build_schema(find_by_ids_usecase, list_usecase);
@@ -96,16 +95,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn graphiql() -> impl IntoResponse {
-    Html(
-        GraphiQLSource::build()
-            .endpoint("/graphql")
-            .finish()
-    )
+    Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
-async fn graphql_handler(
-    State(schema): State<AppSchema>,
-    req: GraphQLRequest,
-) -> GraphQLResponse {
+async fn graphql_handler(State(schema): State<AppSchema>, req: GraphQLRequest) -> GraphQLResponse {
     schema.execute(req.into_inner()).await.into()
 }

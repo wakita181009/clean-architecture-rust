@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use async_graphql::dataloader::Loader;
 
-use application::usecase::jira::JiraIssueFindByIdsUseCase;
+use application::usecase::query::jira::JiraIssueFindByIdsQueryUseCase;
 use domain::value_object::jira::JiraIssueId;
 
 use crate::api::graphql::types::JiraIssueGql;
@@ -11,11 +11,11 @@ use crate::api::graphql::types::JiraIssueGql;
 /// DataLoader for batching Jira issue fetches.
 /// This helps avoid N+1 query problems when fetching multiple issues.
 pub struct JiraIssueLoader {
-    usecase: Arc<dyn JiraIssueFindByIdsUseCase>,
+    usecase: Arc<dyn JiraIssueFindByIdsQueryUseCase>,
 }
 
 impl JiraIssueLoader {
-    pub fn new(usecase: Arc<dyn JiraIssueFindByIdsUseCase>) -> Self {
+    pub fn new(usecase: Arc<dyn JiraIssueFindByIdsQueryUseCase>) -> Self {
         Self { usecase }
     }
 }
@@ -27,15 +27,15 @@ impl Loader<i64> for JiraIssueLoader {
     async fn load(&self, keys: &[i64]) -> Result<HashMap<i64, Self::Value>, Self::Error> {
         let ids: Vec<JiraIssueId> = keys.iter().map(|&id| JiraIssueId::new(id)).collect();
 
-        let issues = self
+        let dtos = self
             .usecase
             .execute(ids)
             .await
             .map_err(|e| e.to_string())?;
 
-        let map: HashMap<i64, JiraIssueGql> = issues
+        let map: HashMap<i64, JiraIssueGql> = dtos
             .into_iter()
-            .map(|issue| (issue.id.value(), JiraIssueGql::from(issue)))
+            .map(|dto| (dto.id, JiraIssueGql::from(dto)))
             .collect();
 
         Ok(map)

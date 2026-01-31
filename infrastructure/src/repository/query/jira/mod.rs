@@ -1,0 +1,3 @@
+mod jira_issue_query_repository_impl;
+
+pub use jira_issue_query_repository_impl::JiraIssueQueryRepositoryImpl;

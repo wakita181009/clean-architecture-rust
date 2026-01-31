@@ -1,1 +1,2 @@
-pub mod jira;
+pub mod command;
+pub mod query;

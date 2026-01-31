@@ -1,8 +1,7 @@
+use application::dto::jira::JiraIssueDto;
 use chrono::{DateTime, Utc};
 use domain::entity::jira::JiraIssue;
-use domain::value_object::jira::{
-    JiraIssueId, JiraIssueKey, JiraIssuePriority, JiraIssueType, JiraProjectId,
-};
+use domain::value_object::jira::{JiraIssuePriority, JiraIssueType};
 use sqlx::FromRow;
 
 /// Database row representation of a Jira issue.
@@ -20,20 +19,6 @@ pub struct JiraIssueRow {
 }
 
 impl JiraIssueRow {
-    pub fn into_domain(self) -> JiraIssue {
-        JiraIssue::new(
-            JiraIssueId::new(self.id),
-            JiraProjectId::new(self.project_id),
-            JiraIssueKey::new(self.key),
-            self.summary,
-            self.description.map(|v| v.to_string()),
-            self.issue_type.into_domain(),
-            self.priority.into_domain(),
-            self.created_at,
-            self.updated_at,
-        )
-    }
-
     pub fn from_domain(issue: &JiraIssue) -> Self {
         Self {
             id: issue.id.value(),
@@ -49,6 +34,21 @@ impl JiraIssueRow {
             created_at: issue.created_at,
             updated_at: issue.updated_at,
         }
+    }
+
+    /// Converts directly to DTO without going through domain entity.
+    /// This is more efficient for query operations.
+    pub fn into_dto(self) -> JiraIssueDto {
+        JiraIssueDto::new(
+            self.id,
+            self.key,
+            self.summary,
+            self.description.map(|v| v.to_string()),
+            self.issue_type.into_domain(),
+            self.priority.into_domain(),
+            self.created_at,
+            self.updated_at,
+        )
     }
 }
 
@@ -114,6 +114,16 @@ impl JiraIssuePriorityDb {
             JiraIssuePriority::Medium => Self::Medium,
             JiraIssuePriority::Low => Self::Low,
             JiraIssuePriority::Lowest => Self::Lowest,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Highest => "Highest",
+            Self::High => "High",
+            Self::Medium => "Medium",
+            Self::Low => "Low",
+            Self::Lowest => "Lowest",
         }
     }
 }

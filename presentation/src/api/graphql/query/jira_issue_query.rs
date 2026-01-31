@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result, ID};
 use async_graphql::dataloader::DataLoader;
 
-use application::usecase::jira::JiraIssueListUseCase;
+use application::usecase::query::jira::JiraIssueListQueryUseCase;
 
 use crate::api::graphql::types::{JiraIssueGql, JiraIssueListGql};
 
@@ -44,7 +44,7 @@ impl JiraIssueQuery {
         #[graphql(name = "pageNumber", default = 1)] page_number: i32,
         #[graphql(name = "pageSize", default = 10)] page_size: i32,
     ) -> Result<JiraIssueListGql> {
-        let usecase = ctx.data::<Arc<dyn JiraIssueListUseCase>>()?;
+        let usecase = ctx.data::<Arc<dyn JiraIssueListQueryUseCase>>()?;
 
         let page = usecase
             .execute(page_number, page_size)
