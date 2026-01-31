@@ -63,7 +63,10 @@ mod tests {
     fn test_page_size_below_minimum() {
         let result = PageSize::of(0);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), PageSizeError::BelowMinimum { value: 0 });
+        assert_eq!(
+            result.unwrap_err(),
+            PageSizeError::BelowMinimum { value: 0 }
+        );
     }
 
     #[test]

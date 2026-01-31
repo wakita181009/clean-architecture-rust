@@ -23,6 +23,9 @@ pub enum JiraError {
         #[source]
         cause: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
+
+    #[error("Validation error: {message}")]
+    ValidationError { message: String },
 }
 
 impl DomainError for JiraError {}
@@ -69,6 +72,12 @@ impl JiraError {
         Self::ApiError {
             message: message.into(),
             cause: Some(Box::new(cause)),
+        }
+    }
+
+    pub fn validation_error(message: impl Into<String>) -> Self {
+        Self::ValidationError {
+            message: message.into(),
         }
     }
 }

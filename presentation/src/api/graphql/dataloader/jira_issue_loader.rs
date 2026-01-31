@@ -27,11 +27,7 @@ impl Loader<i64> for JiraIssueLoader {
     async fn load(&self, keys: &[i64]) -> Result<HashMap<i64, Self::Value>, Self::Error> {
         let ids: Vec<JiraIssueId> = keys.iter().map(|&id| JiraIssueId::new(id)).collect();
 
-        let dtos = self
-            .usecase
-            .execute(ids)
-            .await
-            .map_err(|e| e.to_string())?;
+        let dtos = self.usecase.execute(ids).await.map_err(|e| e.to_string())?;
 
         let map: HashMap<i64, JiraIssueGql> = dtos
             .into_iter()

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, Object, Result, ID};
 use async_graphql::dataloader::DataLoader;
+use async_graphql::{Context, ID, Object, Result};
 
 use application::usecase::query::jira::JiraIssueListQueryUseCase;
 
@@ -17,11 +17,7 @@ pub struct JiraIssueQuery;
 impl JiraIssueQuery {
     /// Fetches a single Jira issue by ID using DataLoader for efficient batching.
     #[graphql(name = "jiraIssue")]
-    async fn jira_issue(
-        &self,
-        ctx: &Context<'_>,
-        id: ID,
-    ) -> Result<Option<JiraIssueGql>> {
+    async fn jira_issue(&self, ctx: &Context<'_>, id: ID) -> Result<Option<JiraIssueGql>> {
         let loader = ctx.data::<JiraIssueDataLoader>()?;
 
         let issue_id: i64 = id

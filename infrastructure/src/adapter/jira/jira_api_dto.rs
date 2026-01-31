@@ -44,9 +44,11 @@ impl JiraIssueResponse {
         let priority: JiraIssuePriority = self.fields.priority.name.parse().ok()?;
 
         // Convert description from ADF (Atlassian Document Format) to plain text or JSON string
-        let description = self.fields.description.as_ref().map(|adf| {
-            extract_text_from_adf(adf)
-        });
+        let description = self
+            .fields
+            .description
+            .as_ref()
+            .map(|adf| extract_text_from_adf(adf));
 
         Some(JiraIssue::new(
             JiraIssueId::new(id),

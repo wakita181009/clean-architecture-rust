@@ -1,3 +1,3 @@
 mod sync_issues;
 
-pub use sync_issues::{run_sync_issues, SyncIssuesArgs};
+pub use sync_issues::{SyncIssuesArgs, run_sync_issues};

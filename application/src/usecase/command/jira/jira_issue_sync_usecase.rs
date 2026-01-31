@@ -131,6 +131,13 @@ mod tests {
                 .take()
                 .expect("result already consumed")
         }
+
+        async fn create(
+            &self,
+            project: domain::entity::jira::JiraProject,
+        ) -> Result<domain::entity::jira::JiraProject, JiraError> {
+            Ok(project)
+        }
     }
 
     struct MockJiraIssueRepository {

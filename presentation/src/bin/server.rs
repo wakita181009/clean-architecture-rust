@@ -14,8 +14,12 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use application::usecase::query::jira::{JiraIssueFindByIdsQueryUseCaseImpl, JiraIssueListQueryUseCaseImpl};
+use application::usecase::command::jira::JiraProjectCreateUseCaseImpl;
+use application::usecase::query::jira::{
+    JiraIssueFindByIdsQueryUseCaseImpl, JiraIssueListQueryUseCaseImpl,
+};
 use infrastructure::config::DatabaseConfig;
+use infrastructure::repository::command::jira::JiraProjectRepositoryImpl;
 use infrastructure::repository::query::jira::JiraIssueQueryRepositoryImpl;
 use presentation::api::graphql::{AppSchema, build_schema};
 
@@ -62,14 +66,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize repositories
     let issue_repository = Arc::new(JiraIssueQueryRepositoryImpl::new(pool.clone()));
+    let project_repository = Arc::new(JiraProjectRepositoryImpl::new(pool.clone()));
 
     // Initialize use cases
-    let find_by_ids_usecase =
-        Arc::new(JiraIssueFindByIdsQueryUseCaseImpl::new(issue_repository.clone()));
+    let find_by_ids_usecase = Arc::new(JiraIssueFindByIdsQueryUseCaseImpl::new(
+        issue_repository.clone(),
+    ));
     let list_usecase = Arc::new(JiraIssueListQueryUseCaseImpl::new(issue_repository.clone()));
+    let create_project_usecase = Arc::new(JiraProjectCreateUseCaseImpl::new(project_repository));
 
     // Build GraphQL schema
-    let schema = build_schema(find_by_ids_usecase, list_usecase);
+    let schema = build_schema(find_by_ids_usecase, list_usecase, create_project_usecase);
 
     // Configure CORS
     let cors = CorsLayer::new()

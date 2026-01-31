@@ -38,7 +38,9 @@ impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCaseImpl<R> {
 }
 
 #[async_trait]
-impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCase for JiraIssueFindByIdsQueryUseCaseImpl<R> {
+impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCase
+    for JiraIssueFindByIdsQueryUseCaseImpl<R>
+{
     async fn execute(
         &self,
         ids: Vec<JiraIssueId>,
@@ -72,7 +74,10 @@ mod tests {
 
     #[async_trait]
     impl JiraIssueQueryRepository for MockJiraIssueQueryRepository {
-        async fn find_by_ids(&self, _ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+        async fn find_by_ids(
+            &self,
+            _ids: Vec<JiraIssueId>,
+        ) -> Result<Vec<JiraIssueDto>, JiraError> {
             self.find_by_ids_result
                 .lock()
                 .unwrap()

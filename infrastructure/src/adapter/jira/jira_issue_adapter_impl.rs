@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use backoff::future::retry_notify;
 use backoff::ExponentialBackoff;
+use backoff::future::retry_notify;
 use chrono::{DateTime, Utc};
 use futures::stream::BoxStream;
 use reqwest::Client;
@@ -60,10 +60,7 @@ impl JiraIssueAdapterImpl {
         let keys_str = keys.join(", ");
         let since_str = since.format("%Y-%m-%d %H:%M").to_string();
 
-        format!(
-            "project in ({}) AND updated >= '{}'",
-            keys_str, since_str
-        )
+        format!("project in ({}) AND updated >= '{}'", keys_str, since_str)
     }
 
     /// Fetches a single page of issues from the API with retry logic.
