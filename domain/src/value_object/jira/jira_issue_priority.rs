@@ -19,16 +19,19 @@ impl JiraIssuePriority {
             Self::Lowest => "Lowest",
         }
     }
+}
 
-    /// Creates a JiraIssuePriority from a string.
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for JiraIssuePriority {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "highest" => Some(Self::Highest),
-            "high" => Some(Self::High),
-            "medium" => Some(Self::Medium),
-            "low" => Some(Self::Low),
-            "lowest" => Some(Self::Lowest),
-            _ => None,
+            "highest" => Ok(Self::Highest),
+            "high" => Ok(Self::High),
+            "medium" => Ok(Self::Medium),
+            "low" => Ok(Self::Low),
+            "lowest" => Ok(Self::Lowest),
+            _ => Err(()),
         }
     }
 }
@@ -55,26 +58,26 @@ mod tests {
     #[test]
     fn test_jira_issue_priority_from_str() {
         assert_eq!(
-            JiraIssuePriority::from_str("highest"),
-            Some(JiraIssuePriority::Highest)
+            "highest".parse::<JiraIssuePriority>(),
+            Ok(JiraIssuePriority::Highest)
         );
         assert_eq!(
-            JiraIssuePriority::from_str("HIGH"),
-            Some(JiraIssuePriority::High)
+            "HIGH".parse::<JiraIssuePriority>(),
+            Ok(JiraIssuePriority::High)
         );
         assert_eq!(
-            JiraIssuePriority::from_str("Medium"),
-            Some(JiraIssuePriority::Medium)
+            "Medium".parse::<JiraIssuePriority>(),
+            Ok(JiraIssuePriority::Medium)
         );
         assert_eq!(
-            JiraIssuePriority::from_str("low"),
-            Some(JiraIssuePriority::Low)
+            "low".parse::<JiraIssuePriority>(),
+            Ok(JiraIssuePriority::Low)
         );
         assert_eq!(
-            JiraIssuePriority::from_str("lowest"),
-            Some(JiraIssuePriority::Lowest)
+            "lowest".parse::<JiraIssuePriority>(),
+            Ok(JiraIssuePriority::Lowest)
         );
-        assert_eq!(JiraIssuePriority::from_str("unknown"), None);
+        assert!("unknown".parse::<JiraIssuePriority>().is_err());
     }
 
     #[test]

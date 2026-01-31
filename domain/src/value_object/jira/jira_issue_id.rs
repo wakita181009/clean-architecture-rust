@@ -16,7 +16,7 @@ impl JiraIssueId {
         value
             .parse::<i64>()
             .map(Self)
-            .map_err(|e| JiraError::invalid_id_with_cause(e))
+            .map_err(JiraError::invalid_id_with_cause)
     }
 
     /// Returns the inner value.

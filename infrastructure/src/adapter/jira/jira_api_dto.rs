@@ -40,8 +40,8 @@ impl JiraIssueResponse {
     /// Returns None if the response cannot be converted (e.g., unknown issue type or priority).
     pub fn to_domain(&self) -> Option<JiraIssue> {
         let id: i64 = self.id.parse().ok()?;
-        let issue_type = JiraIssueType::from_str(&self.fields.issuetype.name)?;
-        let priority = JiraIssuePriority::from_str(&self.fields.priority.name)?;
+        let issue_type: JiraIssueType = self.fields.issuetype.name.parse().ok()?;
+        let priority: JiraIssuePriority = self.fields.priority.name.parse().ok()?;
 
         // Convert description from ADF (Atlassian Document Format) to plain text or JSON string
         let description = self.fields.description.as_ref().map(|adf| {

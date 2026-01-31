@@ -19,16 +19,19 @@ impl JiraIssueType {
             Self::Bug => "Bug",
         }
     }
+}
 
-    /// Creates a JiraIssueType from a string.
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for JiraIssueType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "epic" => Some(Self::Epic),
-            "story" => Some(Self::Story),
-            "task" => Some(Self::Task),
-            "subtask" | "sub-task" => Some(Self::Subtask),
-            "bug" => Some(Self::Bug),
-            _ => None,
+            "epic" => Ok(Self::Epic),
+            "story" => Ok(Self::Story),
+            "task" => Ok(Self::Task),
+            "subtask" => Ok(Self::Subtask),
+            "bug" => Ok(Self::Bug),
+            _ => Err(()),
         }
     }
 }
@@ -54,19 +57,19 @@ mod tests {
 
     #[test]
     fn test_jira_issue_type_from_str() {
-        assert_eq!(JiraIssueType::from_str("epic"), Some(JiraIssueType::Epic));
-        assert_eq!(JiraIssueType::from_str("STORY"), Some(JiraIssueType::Story));
-        assert_eq!(JiraIssueType::from_str("Task"), Some(JiraIssueType::Task));
+        assert_eq!("epic".parse::<JiraIssueType>(), Ok(JiraIssueType::Epic));
+        assert_eq!("STORY".parse::<JiraIssueType>(), Ok(JiraIssueType::Story));
+        assert_eq!("Task".parse::<JiraIssueType>(), Ok(JiraIssueType::Task));
         assert_eq!(
-            JiraIssueType::from_str("subtask"),
-            Some(JiraIssueType::Subtask)
+            "subtask".parse::<JiraIssueType>(),
+            Ok(JiraIssueType::Subtask)
         );
         assert_eq!(
-            JiraIssueType::from_str("sub-task"),
-            Some(JiraIssueType::Subtask)
+            "sub-task".parse::<JiraIssueType>(),
+            Ok(JiraIssueType::Subtask)
         );
-        assert_eq!(JiraIssueType::from_str("Bug"), Some(JiraIssueType::Bug));
-        assert_eq!(JiraIssueType::from_str("unknown"), None);
+        assert_eq!("Bug".parse::<JiraIssueType>(), Ok(JiraIssueType::Bug));
+        assert!("unknown".parse::<JiraIssueType>().is_err());
     }
 
     #[test]

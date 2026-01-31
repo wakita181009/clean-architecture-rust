@@ -31,7 +31,7 @@ impl JiraIssueQuery {
         let issue = loader
             .load_one(issue_id)
             .await
-            .map_err(|e| async_graphql::Error::new(format!("{}", e)))?;
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
         Ok(issue)
     }
