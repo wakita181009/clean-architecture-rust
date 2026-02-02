@@ -4,19 +4,20 @@ use domain::error::JiraError;
 use domain::value_object::jira::JiraIssueId;
 use domain::value_object::{Page, PageNumber, PageSize};
 
-use crate::dto::jira::JiraIssueDto;
+use crate::dto::query::jira::JiraIssueQueryDto;
 
 /// Repository interface for Jira issue queries.
 /// Returns DTOs optimized for read operations.
 #[async_trait]
 pub trait JiraIssueQueryRepository: Send + Sync {
     /// Finds issues by their IDs.
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>)
+    -> Result<Vec<JiraIssueQueryDto>, JiraError>;
 
     /// Lists issues with pagination.
     async fn list(
         &self,
         page_number: PageNumber,
         page_size: PageSize,
-    ) -> Result<Page<JiraIssueDto>, JiraError>;
+    ) -> Result<Page<JiraIssueQueryDto>, JiraError>;
 }

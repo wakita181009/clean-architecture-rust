@@ -5,9 +5,9 @@ use crate::error::ApplicationError;
 
 /// Represents errors that can occur when finding Jira projects by IDs.
 #[derive(Debug, Error)]
-pub enum JiraProjectFindByIdError {
+pub enum JiraProjectFindByIdQueryError {
     #[error("Failed to fetch projects: {0}")]
     ProjectFetchFailed(#[source] JiraError),
 }
 
-impl ApplicationError for JiraProjectFindByIdError {}
+impl ApplicationError for JiraProjectFindByIdQueryError {}

@@ -4,6 +4,7 @@ use domain::value_object::jira::{JiraIssuePriority, JiraIssueType};
 
 /// GraphQL enum for Jira issue type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
+#[graphql(name = "JiraIssueType")]
 pub enum JiraIssueTypeGql {
     Epic,
     Story,
@@ -26,6 +27,7 @@ impl From<JiraIssueType> for JiraIssueTypeGql {
 
 /// GraphQL enum for Jira issue priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
+#[graphql(name = "JiraIssuePriority")]
 pub enum JiraIssuePriorityGql {
     Highest,
     High,

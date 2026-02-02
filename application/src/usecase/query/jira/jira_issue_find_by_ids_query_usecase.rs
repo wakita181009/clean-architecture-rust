@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::value_object::jira::JiraIssueId;
 
-use crate::dto::jira::JiraIssueDto;
-use crate::error::jira::JiraIssueFindByIdError;
+use crate::dto::query::jira::JiraIssueQueryDto;
+use crate::error::query::jira::JiraIssueFindByIdQueryError;
 use crate::repository::jira::JiraIssueQueryRepository;
 
 /// Use case for finding Jira issues by their IDs.
@@ -21,7 +21,7 @@ pub trait JiraIssueFindByIdsQueryUseCase: Send + Sync {
     async fn execute(
         &self,
         ids: Vec<JiraIssueId>,
-    ) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError>;
+    ) -> Result<Vec<JiraIssueQueryDto>, JiraIssueFindByIdQueryError>;
 }
 
 /// Implementation of JiraIssueFindByIdsUseCase.
@@ -44,11 +44,11 @@ impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCase
     async fn execute(
         &self,
         ids: Vec<JiraIssueId>,
-    ) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError> {
+    ) -> Result<Vec<JiraIssueQueryDto>, JiraIssueFindByIdQueryError> {
         self.jira_issue_repository
             .find_by_ids(ids)
             .await
-            .map_err(JiraIssueFindByIdError::IssueFetchFailed)
+            .map_err(JiraIssueFindByIdQueryError::IssueFetchFailed)
     }
 }
 
@@ -61,11 +61,11 @@ mod tests {
     use std::sync::Mutex;
 
     struct MockJiraIssueQueryRepository {
-        find_by_ids_result: Mutex<Option<Result<Vec<JiraIssueDto>, JiraError>>>,
+        find_by_ids_result: Mutex<Option<Result<Vec<JiraIssueQueryDto>, JiraError>>>,
     }
 
     impl MockJiraIssueQueryRepository {
-        fn new(find_by_ids_result: Result<Vec<JiraIssueDto>, JiraError>) -> Self {
+        fn new(find_by_ids_result: Result<Vec<JiraIssueQueryDto>, JiraError>) -> Self {
             Self {
                 find_by_ids_result: Mutex::new(Some(find_by_ids_result)),
             }
@@ -77,7 +77,7 @@ mod tests {
         async fn find_by_ids(
             &self,
             _ids: Vec<JiraIssueId>,
-        ) -> Result<Vec<JiraIssueDto>, JiraError> {
+        ) -> Result<Vec<JiraIssueQueryDto>, JiraError> {
             self.find_by_ids_result
                 .lock()
                 .unwrap()
@@ -89,13 +89,13 @@ mod tests {
             &self,
             _page_number: PageNumber,
             _page_size: PageSize,
-        ) -> Result<Page<JiraIssueDto>, JiraError> {
+        ) -> Result<Page<JiraIssueQueryDto>, JiraError> {
             unimplemented!()
         }
     }
 
-    fn create_test_dto(id: i64) -> JiraIssueDto {
-        JiraIssueDto::new(
+    fn create_test_dto(id: i64) -> JiraIssueQueryDto {
+        JiraIssueQueryDto::new(
             id,
             format!("TEST-{}", id),
             format!("Test Issue {}", id),
@@ -145,7 +145,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraIssueFindByIdError::IssueFetchFailed(_)
+            JiraIssueFindByIdQueryError::IssueFetchFailed(_)
         ));
     }
 }

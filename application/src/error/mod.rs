@@ -1,4 +1,5 @@
-pub mod jira;
+pub mod command;
+pub mod query;
 mod transaction_error;
 
 pub use transaction_error::TransactionError;

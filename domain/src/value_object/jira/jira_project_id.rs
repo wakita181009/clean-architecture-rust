@@ -13,15 +13,10 @@ impl JiraProjectId {
     /// Creates a new JiraProjectId with validation from string.
     pub fn of(value: impl Into<String>) -> Result<Self, JiraError> {
         let value = value.into();
-        let id = value
-            .parse::<i64>()
-            .map_err(JiraError::invalid_id_with_cause)?;
+        let id = value.parse::<i64>().map_err(JiraError::invalid_id)?;
 
         if id <= 0 {
-            return Err(JiraError::validation_error(format!(
-                "Project ID must be positive: {}",
-                id
-            )));
+            return Err(JiraError::invalid_project_id(id));
         }
 
         Ok(Self(id))
@@ -86,19 +81,17 @@ mod tests {
     fn test_jira_project_id_of_negative() {
         let result = JiraProjectId::of("-1");
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            JiraError::ValidationError { .. }
-        ));
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::InvalidProjectId { value: -1 }));
+        assert_eq!(err.to_string(), "Project ID must be positive: -1");
     }
 
     #[test]
     fn test_jira_project_id_of_zero() {
         let result = JiraProjectId::of("0");
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            JiraError::ValidationError { .. }
-        ));
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::InvalidProjectId { value: 0 }));
+        assert_eq!(err.to_string(), "Project ID must be positive: 0");
     }
 }

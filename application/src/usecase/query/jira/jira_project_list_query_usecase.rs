@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::value_object::{Page, PageNumber, PageSize};
 
-use crate::dto::jira::JiraProjectDto;
-use crate::error::jira::JiraProjectListError;
+use crate::dto::query::jira::JiraProjectQueryDto;
+use crate::error::query::jira::JiraProjectListQueryError;
 use crate::repository::jira::JiraProjectQueryRepository;
 
 /// Use case for listing Jira projects with pagination.
@@ -23,7 +23,7 @@ pub trait JiraProjectListQueryUseCase: Send + Sync {
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraProjectDto>, JiraProjectListError>;
+    ) -> Result<Page<JiraProjectQueryDto>, JiraProjectListQueryError>;
 }
 
 /// Implementation of JiraProjectListQueryUseCase.
@@ -45,17 +45,17 @@ impl<R: JiraProjectQueryRepository> JiraProjectListQueryUseCase
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraProjectDto>, JiraProjectListError> {
+    ) -> Result<Page<JiraProjectQueryDto>, JiraProjectListQueryError> {
         let valid_page_number =
-            PageNumber::of(page_number).map_err(JiraProjectListError::InvalidPageNumber)?;
+            PageNumber::of(page_number).map_err(JiraProjectListQueryError::InvalidPageNumber)?;
 
         let valid_page_size =
-            PageSize::of(page_size).map_err(JiraProjectListError::InvalidPageSize)?;
+            PageSize::of(page_size).map_err(JiraProjectListQueryError::InvalidPageSize)?;
 
         self.repository
             .list(valid_page_number, valid_page_size)
             .await
-            .map_err(JiraProjectListError::ProjectFetchFailed)
+            .map_err(JiraProjectListQueryError::ProjectFetchFailed)
     }
 }
 
@@ -67,11 +67,11 @@ mod tests {
     use std::sync::Mutex;
 
     struct MockJiraProjectQueryRepository {
-        list_result: Mutex<Option<Result<Page<JiraProjectDto>, JiraError>>>,
+        list_result: Mutex<Option<Result<Page<JiraProjectQueryDto>, JiraError>>>,
     }
 
     impl MockJiraProjectQueryRepository {
-        fn new(list_result: Result<Page<JiraProjectDto>, JiraError>) -> Self {
+        fn new(list_result: Result<Page<JiraProjectQueryDto>, JiraError>) -> Self {
             Self {
                 list_result: Mutex::new(Some(list_result)),
             }
@@ -83,7 +83,7 @@ mod tests {
         async fn find_by_ids(
             &self,
             _ids: Vec<JiraProjectId>,
-        ) -> Result<Vec<JiraProjectDto>, JiraError> {
+        ) -> Result<Vec<JiraProjectQueryDto>, JiraError> {
             unimplemented!()
         }
 
@@ -91,7 +91,7 @@ mod tests {
             &self,
             _page_number: PageNumber,
             _page_size: PageSize,
-        ) -> Result<Page<JiraProjectDto>, JiraError> {
+        ) -> Result<Page<JiraProjectQueryDto>, JiraError> {
             self.list_result
                 .lock()
                 .unwrap()
@@ -100,13 +100,13 @@ mod tests {
         }
     }
 
-    fn create_test_dto(id: i64) -> JiraProjectDto {
-        JiraProjectDto::new(id, format!("PROJ{}", id), format!("Project {}", id))
+    fn create_test_dto(id: i64) -> JiraProjectQueryDto {
+        JiraProjectQueryDto::new(id, format!("PROJ{}", id), format!("Project {}", id))
     }
 
     #[tokio::test]
     async fn execute_should_return_page_of_projects_with_valid_pagination() {
-        let dtos: Vec<JiraProjectDto> = (1..=10).map(create_test_dto).collect();
+        let dtos: Vec<JiraProjectQueryDto> = (1..=10).map(create_test_dto).collect();
         let expected_page = Page::new(100, dtos);
         let repository = Arc::new(MockJiraProjectQueryRepository::new(Ok(
             expected_page.clone()
@@ -131,7 +131,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraProjectListError::InvalidPageNumber(_)
+            JiraProjectListQueryError::InvalidPageNumber(_)
         ));
     }
 
@@ -145,7 +145,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraProjectListError::InvalidPageSize(_)
+            JiraProjectListQueryError::InvalidPageSize(_)
         ));
     }
 
@@ -159,7 +159,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraProjectListError::InvalidPageSize(_)
+            JiraProjectListQueryError::InvalidPageSize(_)
         ));
     }
 
@@ -175,7 +175,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraProjectListError::ProjectFetchFailed(_)
+            JiraProjectListQueryError::ProjectFetchFailed(_)
         ));
     }
 }

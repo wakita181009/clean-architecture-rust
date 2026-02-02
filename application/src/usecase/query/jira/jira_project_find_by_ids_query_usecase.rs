@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::value_object::jira::JiraProjectId;
 
-use crate::dto::jira::JiraProjectDto;
-use crate::error::jira::JiraProjectFindByIdError;
+use crate::dto::query::jira::JiraProjectQueryDto;
+use crate::error::query::jira::JiraProjectFindByIdQueryError;
 use crate::repository::jira::JiraProjectQueryRepository;
 
 /// Use case for finding Jira projects by their IDs.
@@ -21,7 +21,7 @@ pub trait JiraProjectFindByIdsQueryUseCase: Send + Sync {
     async fn execute(
         &self,
         ids: Vec<JiraProjectId>,
-    ) -> Result<Vec<JiraProjectDto>, JiraProjectFindByIdError>;
+    ) -> Result<Vec<JiraProjectQueryDto>, JiraProjectFindByIdQueryError>;
 }
 
 /// Implementation of JiraProjectFindByIdsQueryUseCase.
@@ -42,11 +42,11 @@ impl<R: JiraProjectQueryRepository> JiraProjectFindByIdsQueryUseCase
     async fn execute(
         &self,
         ids: Vec<JiraProjectId>,
-    ) -> Result<Vec<JiraProjectDto>, JiraProjectFindByIdError> {
+    ) -> Result<Vec<JiraProjectQueryDto>, JiraProjectFindByIdQueryError> {
         self.repository
             .find_by_ids(ids)
             .await
-            .map_err(JiraProjectFindByIdError::ProjectFetchFailed)
+            .map_err(JiraProjectFindByIdQueryError::ProjectFetchFailed)
     }
 }
 
@@ -58,11 +58,11 @@ mod tests {
     use std::sync::Mutex;
 
     struct MockJiraProjectQueryRepository {
-        find_result: Mutex<Option<Result<Vec<JiraProjectDto>, JiraError>>>,
+        find_result: Mutex<Option<Result<Vec<JiraProjectQueryDto>, JiraError>>>,
     }
 
     impl MockJiraProjectQueryRepository {
-        fn new(find_result: Result<Vec<JiraProjectDto>, JiraError>) -> Self {
+        fn new(find_result: Result<Vec<JiraProjectQueryDto>, JiraError>) -> Self {
             Self {
                 find_result: Mutex::new(Some(find_result)),
             }
@@ -74,7 +74,7 @@ mod tests {
         async fn find_by_ids(
             &self,
             _ids: Vec<JiraProjectId>,
-        ) -> Result<Vec<JiraProjectDto>, JiraError> {
+        ) -> Result<Vec<JiraProjectQueryDto>, JiraError> {
             self.find_result
                 .lock()
                 .unwrap()
@@ -86,13 +86,13 @@ mod tests {
             &self,
             _page_number: PageNumber,
             _page_size: PageSize,
-        ) -> Result<Page<JiraProjectDto>, JiraError> {
+        ) -> Result<Page<JiraProjectQueryDto>, JiraError> {
             unimplemented!()
         }
     }
 
-    fn create_test_dto(id: i64) -> JiraProjectDto {
-        JiraProjectDto::new(id, format!("PROJ{}", id), format!("Project {}", id))
+    fn create_test_dto(id: i64) -> JiraProjectQueryDto {
+        JiraProjectQueryDto::new(id, format!("PROJ{}", id), format!("Project {}", id))
     }
 
     #[tokio::test]
@@ -134,7 +134,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraProjectFindByIdError::ProjectFetchFailed(_)
+            JiraProjectFindByIdQueryError::ProjectFetchFailed(_)
         ));
     }
 }

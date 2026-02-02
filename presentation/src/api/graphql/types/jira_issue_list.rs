@@ -1,6 +1,6 @@
 use async_graphql::Object;
 
-use application::dto::jira::JiraIssueDto;
+use application::dto::query::jira::JiraIssueQueryDto;
 use domain::value_object::Page;
 
 use super::JiraIssueGql;
@@ -11,7 +11,7 @@ pub struct JiraIssueListGql {
     pub total_count: i32,
 }
 
-#[Object]
+#[Object(name = "JiraIssueList")]
 impl JiraIssueListGql {
     async fn items(&self) -> &[JiraIssueGql] {
         &self.items
@@ -23,8 +23,8 @@ impl JiraIssueListGql {
     }
 }
 
-impl From<Page<JiraIssueDto>> for JiraIssueListGql {
-    fn from(page: Page<JiraIssueDto>) -> Self {
+impl From<Page<JiraIssueQueryDto>> for JiraIssueListGql {
+    fn from(page: Page<JiraIssueQueryDto>) -> Self {
         Self {
             items: page.items.into_iter().map(JiraIssueGql::from).collect(),
             total_count: page.total_count,

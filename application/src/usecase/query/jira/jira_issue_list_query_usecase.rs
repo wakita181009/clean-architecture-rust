@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use domain::value_object::{Page, PageNumber, PageSize};
 
-use crate::dto::jira::JiraIssueDto;
-use crate::error::jira::JiraIssueListError;
+use crate::dto::query::jira::JiraIssueQueryDto;
+use crate::error::query::jira::JiraIssueListQueryError;
 use crate::repository::jira::JiraIssueQueryRepository;
 
 /// Use case for listing Jira issues with pagination.
@@ -23,7 +23,7 @@ pub trait JiraIssueListQueryUseCase: Send + Sync {
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraIssueDto>, JiraIssueListError>;
+    ) -> Result<Page<JiraIssueQueryDto>, JiraIssueListQueryError>;
 }
 
 /// Implementation of JiraIssueListUseCase.
@@ -45,17 +45,17 @@ impl<R: JiraIssueQueryRepository> JiraIssueListQueryUseCase for JiraIssueListQue
         &self,
         page_number: i32,
         page_size: i32,
-    ) -> Result<Page<JiraIssueDto>, JiraIssueListError> {
+    ) -> Result<Page<JiraIssueQueryDto>, JiraIssueListQueryError> {
         let valid_page_number =
-            PageNumber::of(page_number).map_err(JiraIssueListError::InvalidPageNumber)?;
+            PageNumber::of(page_number).map_err(JiraIssueListQueryError::InvalidPageNumber)?;
 
         let valid_page_size =
-            PageSize::of(page_size).map_err(JiraIssueListError::InvalidPageSize)?;
+            PageSize::of(page_size).map_err(JiraIssueListQueryError::InvalidPageSize)?;
 
         self.jira_issue_repository
             .list(valid_page_number, valid_page_size)
             .await
-            .map_err(JiraIssueListError::IssueFetchFailed)
+            .map_err(JiraIssueListQueryError::IssueFetchFailed)
     }
 }
 
@@ -67,11 +67,11 @@ mod tests {
     use std::sync::Mutex;
 
     struct MockJiraIssueQueryRepository {
-        list_result: Mutex<Option<Result<Page<JiraIssueDto>, JiraError>>>,
+        list_result: Mutex<Option<Result<Page<JiraIssueQueryDto>, JiraError>>>,
     }
 
     impl MockJiraIssueQueryRepository {
-        fn new(list_result: Result<Page<JiraIssueDto>, JiraError>) -> Self {
+        fn new(list_result: Result<Page<JiraIssueQueryDto>, JiraError>) -> Self {
             Self {
                 list_result: Mutex::new(Some(list_result)),
             }
@@ -83,7 +83,7 @@ mod tests {
         async fn find_by_ids(
             &self,
             _ids: Vec<JiraIssueId>,
-        ) -> Result<Vec<JiraIssueDto>, JiraError> {
+        ) -> Result<Vec<JiraIssueQueryDto>, JiraError> {
             unimplemented!()
         }
 
@@ -91,7 +91,7 @@ mod tests {
             &self,
             _page_number: PageNumber,
             _page_size: PageSize,
-        ) -> Result<Page<JiraIssueDto>, JiraError> {
+        ) -> Result<Page<JiraIssueQueryDto>, JiraError> {
             self.list_result
                 .lock()
                 .unwrap()
@@ -100,8 +100,8 @@ mod tests {
         }
     }
 
-    fn create_test_dto(id: i64) -> JiraIssueDto {
-        JiraIssueDto::new(
+    fn create_test_dto(id: i64) -> JiraIssueQueryDto {
+        JiraIssueQueryDto::new(
             id,
             format!("TEST-{}", id),
             format!("Test Issue {}", id),
@@ -115,7 +115,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_should_return_page_of_issues_with_valid_pagination() {
-        let dtos: Vec<JiraIssueDto> = (1..=10).map(create_test_dto).collect();
+        let dtos: Vec<JiraIssueQueryDto> = (1..=10).map(create_test_dto).collect();
         let expected_page = Page::new(100, dtos);
         let repository = Arc::new(MockJiraIssueQueryRepository::new(Ok(expected_page.clone())));
         let usecase = JiraIssueListQueryUseCaseImpl::new(repository);
@@ -138,7 +138,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraIssueListError::InvalidPageNumber(_)
+            JiraIssueListQueryError::InvalidPageNumber(_)
         ));
     }
 
@@ -152,7 +152,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraIssueListError::InvalidPageSize(_)
+            JiraIssueListQueryError::InvalidPageSize(_)
         ));
     }
 
@@ -166,7 +166,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraIssueListError::InvalidPageSize(_)
+            JiraIssueListQueryError::InvalidPageSize(_)
         ));
     }
 
@@ -182,7 +182,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            JiraIssueListError::IssueFetchFailed(_)
+            JiraIssueListQueryError::IssueFetchFailed(_)
         ));
     }
 }

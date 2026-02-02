@@ -24,23 +24,28 @@ pub enum JiraError {
         cause: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
-    #[error("Validation error: {message}")]
-    ValidationError { message: String },
+    #[error("Unknown issue type: {value}")]
+    UnknownIssueType { value: String },
+
+    #[error("Unknown priority: {value}")]
+    UnknownPriority { value: String },
+
+    #[error("Project ID must be positive: {value}")]
+    InvalidProjectId { value: i64 },
+
+    #[error("Project name cannot be empty")]
+    EmptyProjectName,
+
+    #[error("Project name exceeds maximum length ({length} > {max})")]
+    ProjectNameTooLong { length: usize, max: usize },
+
+    #[error("Project key cannot be empty")]
+    EmptyProjectKey,
 }
 
 impl DomainError for JiraError {}
 
 impl JiraError {
-    pub fn invalid_id() -> Self {
-        Self::InvalidId { cause: None }
-    }
-
-    pub fn invalid_id_with_cause(cause: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self::InvalidId {
-            cause: Some(Box::new(cause)),
-        }
-    }
-
     pub fn database_error(message: impl Into<String>) -> Self {
         Self::DatabaseError {
             message: message.into(),
@@ -75,9 +80,37 @@ impl JiraError {
         }
     }
 
-    pub fn validation_error(message: impl Into<String>) -> Self {
-        Self::ValidationError {
-            message: message.into(),
+    pub fn invalid_id(cause: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self::InvalidId {
+            cause: Some(Box::new(cause)),
         }
+    }
+
+    pub fn unknown_issue_type(value: impl Into<String>) -> Self {
+        Self::UnknownIssueType {
+            value: value.into(),
+        }
+    }
+
+    pub fn unknown_priority(value: impl Into<String>) -> Self {
+        Self::UnknownPriority {
+            value: value.into(),
+        }
+    }
+
+    pub fn invalid_project_id(value: i64) -> Self {
+        Self::InvalidProjectId { value }
+    }
+
+    pub fn empty_project_name() -> Self {
+        Self::EmptyProjectName
+    }
+
+    pub fn project_name_too_long(length: usize, max: usize) -> Self {
+        Self::ProjectNameTooLong { length, max }
+    }
+
+    pub fn empty_project_key() -> Self {
+        Self::EmptyProjectKey
     }
 }

@@ -6,7 +6,7 @@ use domain::value_object::jira::{JiraIssuePriority, JiraIssueType};
 /// This is a read-only data structure optimized for queries,
 /// using domain enums for type safety.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct JiraIssueDto {
+pub struct JiraIssueQueryDto {
     pub id: i64,
     pub key: String,
     pub summary: String,
@@ -17,7 +17,7 @@ pub struct JiraIssueDto {
     pub updated_at: DateTime<Utc>,
 }
 
-impl JiraIssueDto {
+impl JiraIssueQueryDto {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: i64,

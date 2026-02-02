@@ -61,12 +61,14 @@ This ensures:
 ```
 domain/
 ├── entity/           # Domain entities
-│   └── jira/         # JiraIssue
+│   └── jira/         # JiraIssue, JiraProject
 ├── value_object/     # Value objects
-│   └── jira/         # JiraIssueId, JiraIssueKey, JiraIssuePriority, JiraIssueType, etc.
+│   ├── jira/         # JiraIssueId, JiraIssueKey, JiraIssuePriority, JiraIssueType
+│   │                 # JiraProjectId, JiraProjectKey, JiraProjectName
+│   └── paging/       # Page<T>, PageNumber, PageSize
 ├── port/             # External service traits
-│   └── jira/         # JiraIssuePort
-├── repository/       # Data access traits
+│   └── jira/         # JiraIssuePort, JiraProjectPort
+├── repository/       # Data access traits (Command)
 │   └── jira/         # JiraIssueRepository, JiraProjectRepository
 └── error/            # Domain-specific errors (DomainError, JiraError)
 ```
@@ -80,26 +82,44 @@ application/
 ├── usecase/          # Application use cases (CQRS pattern)
 │   ├── command/      # Write operations
 │   │   └── jira/
-│   │       └── jira_issue_sync_usecase.rs
+│   │       ├── jira_issue_sync_usecase.rs
+│   │       ├── jira_project_sync_usecase.rs
+│   │       ├── jira_project_create_usecase.rs
+│   │       └── jira_project_update_usecase.rs
 │   └── query/        # Read operations
 │       └── jira/
 │           ├── jira_issue_find_by_ids_query_usecase.rs
-│           └── jira_issue_list_query_usecase.rs
+│           ├── jira_issue_list_query_usecase.rs
+│           ├── jira_project_find_by_ids_query_usecase.rs
+│           └── jira_project_list_query_usecase.rs
 ├── repository/       # Query repository traits (returns DTOs)
 │   └── jira/
-│       └── jira_issue_query_repository.rs
-├── dto/              # Data Transfer Objects for queries
-│   └── jira/
-│       └── jira_issue_dto.rs
+│       ├── jira_issue_query_repository.rs
+│       └── jira_project_query_repository.rs
+├── dto/              # Data Transfer Objects
+│   ├── command/      # DTOs for write operations (input)
+│   │   └── jira/
+│   │       ├── create_jira_project_dto.rs
+│   │       └── update_jira_project_dto.rs
+│   └── query/        # DTOs for read operations (output)
+│       └── jira/
+│           ├── jira_issue_query_dto.rs
+│           └── jira_project_query_dto.rs
 ├── port/             # Application ports (traits for infrastructure)
 │   └── transaction_executor.rs
 └── error/            # Application-specific errors
     ├── mod.rs
     ├── transaction_error.rs
-    └── jira/
-        ├── jira_issue_sync_error.rs
-        ├── jira_issue_find_by_id_error.rs
-        └── jira_issue_list_error.rs
+    ├── command/jira/
+    │   ├── jira_issue_sync_error.rs
+    │   ├── jira_project_sync_error.rs
+    │   ├── jira_project_create_error.rs
+    │   └── jira_project_update_error.rs
+    └── query/jira/
+        ├── jira_issue_find_by_id_query_error.rs
+        ├── jira_issue_list_query_error.rs
+        ├── jira_project_find_by_id_query_error.rs
+        └── jira_project_list_query_error.rs
 ```
 
 ### 3. Infrastructure Layer (`infrastructure/`)
@@ -110,14 +130,17 @@ application/
 infrastructure/
 ├── adapter/          # Port implementations
 │   ├── transaction_executor_impl.rs
-│   └── jira/         # JiraIssueAdapterImpl, JiraApiDto
+│   └── jira/         # JiraIssueAdapterImpl, JiraProjectAdapterImpl
 ├── repository/       # Repository implementations (CQRS)
 │   ├── command/      # Write operations
 │   │   └── jira/     # JiraIssueRepositoryImpl, JiraProjectRepositoryImpl
 │   └── query/        # Read operations
-│       └── jira/     # JiraIssueQueryRepositoryImpl
+│       └── jira/     # JiraIssueQueryRepositoryImpl, JiraProjectQueryRepositoryImpl
 ├── config/           # DatabaseConfig
-└── database/         # Row structs for SQLx mapping (with into_dto for queries)
+├── dto/              # External API DTOs
+│   └── jira/         # JiraIssueDto, JiraProjectDto (API response mapping)
+└── database/         # Row structs for SQLx
+    └── jira/         # JiraIssueRow, JiraProjectRow (with into_dto, from_domain)
 ```
 
 ### 4. Presentation Layer (`presentation/`)
@@ -128,15 +151,19 @@ infrastructure/
 presentation/
 ├── api/              # API layer
 │   └── graphql/
-│       ├── query/    # JiraIssueQuery
-│       ├── types/    # JiraIssue, JiraIssueList (GraphQL types)
-│       ├── dataloader/  # JiraIssueLoader
+│       ├── query/       # JiraIssueQuery, JiraProjectQuery
+│       ├── mutation/    # JiraProjectMutation
+│       ├── types/       # JiraIssueGql, JiraIssueListGql, JiraProjectGql
+│       │                # JiraProjectListGql, JiraProjectInputGql
+│       ├── dataloader/  # JiraIssueLoader, JiraProjectLoader
 │       └── schema.rs
 ├── cli/              # CLI modules
-│   └── sync_issues.rs
+│   ├── sync_jira_issues.rs
+│   └── sync_jira_projects.rs
 └── bin/              # Binary entry points
-    ├── server.rs     # GraphQL server (axum)
-    └── sync_issues.rs  # Jira sync CLI
+    ├── server.rs              # GraphQL server (axum)
+    ├── sync_jira_issues.rs    # Jira issue sync CLI
+    └── sync_jira_projects.rs  # Jira project sync CLI
 ```
 
 ## UseCase Implementation Pattern
@@ -292,18 +319,24 @@ pub trait JiraIssueRepository: Send + Sync {
 // Application layer: Query repository (returns DTO, not Entity)
 #[async_trait]
 pub trait JiraIssueQueryRepository: Send + Sync {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
-    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueQueryDto>, JiraError>;
 }
 
-// Application layer: DTO for read operations
-pub struct JiraIssueDto {
+// Application layer: Query DTO for read operations
+pub struct JiraIssueQueryDto {
     pub id: i64,
     pub key: String,
     pub summary: String,
     pub issue_type: JiraIssueType,  // Uses domain enums for type safety
     pub priority: JiraIssuePriority,
     // ...
+}
+
+// Application layer: Command DTO for write operations (input)
+pub struct CreateJiraProjectDto {
+    pub key: String,
+    pub name: String,
 }
 ```
 
@@ -329,16 +362,26 @@ Query:   API     → UseCase → DTO ← Repository (Application) ← DB
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Command UseCase Trait | `{Entity}{Action}UseCase` | `JiraIssueSyncUseCase` |
+| Command UseCase Trait | `{Entity}{Action}UseCase` | `JiraIssueSyncUseCase`, `JiraProjectCreateUseCase` |
 | Query UseCase Trait | `{Entity}{Action}QueryUseCase` | `JiraIssueListQueryUseCase` |
 | UseCase Impl | `{Trait}Impl` | `JiraIssueSyncUseCaseImpl`, `JiraIssueListQueryUseCaseImpl` |
-| Port (Domain) | `{Entity}Port` | `JiraIssuePort` |
+| Port (Domain) | `{Entity}Port` | `JiraIssuePort`, `JiraProjectPort` |
 | Port (Application) | `{Concern}Executor` | `TransactionExecutor` |
-| Adapter | `{Entity}AdapterImpl` | `JiraIssueAdapterImpl` |
-| Command Repository Trait | `{Entity}Repository` | `JiraIssueRepository` |
-| Query Repository Trait | `{Entity}QueryRepository` | `JiraIssueQueryRepository` |
+| Adapter | `{Entity}AdapterImpl` | `JiraIssueAdapterImpl`, `JiraProjectAdapterImpl` |
+| Command Repository Trait | `{Entity}Repository` | `JiraIssueRepository`, `JiraProjectRepository` |
+| Query Repository Trait | `{Entity}QueryRepository` | `JiraIssueQueryRepository`, `JiraProjectQueryRepository` |
 | Repository Impl | `{Trait}Impl` | `JiraIssueRepositoryImpl`, `JiraIssueQueryRepositoryImpl` |
-| DTO | `{Entity}Dto` | `JiraIssueDto` |
+| Query DTO | `{Entity}QueryDto` | `JiraIssueQueryDto`, `JiraProjectQueryDto` |
+| Command DTO | `{Action}{Entity}Dto` | `CreateJiraProjectDto`, `UpdateJiraProjectDto` |
+| GraphQL Type (Rust) | `{Entity}Gql` | `JiraIssueGql`, `JiraProjectGql` |
+| GraphQL Type (Schema) | `{Entity}` | `JiraIssue`, `JiraProject` (via `#[graphql(name)]`) |
+| GraphQL Input (Rust) | `{Action}{Entity}InputGql` | `CreateJiraProjectInputGql` |
+| GraphQL Input (Schema) | `{Action}{Entity}Input` | `CreateJiraProjectInput` (via `#[graphql(name)]`) |
+| GraphQL Query | `{Entity}Query` | `JiraIssueQuery`, `JiraProjectQuery` |
+| GraphQL Mutation | `{Entity}Mutation` | `JiraProjectMutation` |
+| DataLoader | `{Entity}Loader` | `JiraIssueLoader`, `JiraProjectLoader` |
+| Command Error | `{Entity}{Action}Error` | `JiraIssueSyncError`, `JiraProjectCreateError` |
+| Query Error | `{Entity}{Action}QueryError` | `JiraIssueFindByIdQueryError`, `JiraIssueListQueryError` |
 
 ## DTO to Domain Conversion
 
@@ -416,14 +459,33 @@ impl JiraIssueTypeDb {
 
 When implementing new features:
 
-- [ ] Domain: Define Entity using `struct`
-- [ ] Domain: Define Value Objects using newtype pattern
-- [ ] Domain: Define Port traits with `#[async_trait]`
-- [ ] Domain: Define Repository traits with `#[async_trait]`
-- [ ] Domain: Define domain errors with `thiserror`
-- [ ] Application: Define UseCase trait with `#[async_trait]`
-- [ ] Application: Implement UseCase with generic type parameters
-- [ ] Application: Use `TransactionExecutor` for transaction boundaries
-- [ ] Infrastructure: Create Port/Repository implementations
-- [ ] Presentation: Add GraphQL types and queries (if needed)
-- [ ] Presentation: Add CLI command (if needed)
+### Domain Layer
+- [ ] Define Entity using `struct` with builder pattern
+- [ ] Define Value Objects using newtype pattern with validation
+- [ ] Define Port traits with `#[async_trait]` (external APIs)
+- [ ] Define Repository traits with `#[async_trait]` (Command)
+- [ ] Define domain errors with `thiserror`
+
+### Application Layer
+- [ ] Define Command UseCase trait and impl (write operations)
+- [ ] Define Query UseCase trait and impl (read operations)
+- [ ] Define Query Repository traits (returns DTOs)
+- [ ] Define Query DTOs (`{Entity}QueryDto`)
+- [ ] Define Command DTOs if needed (`Create{Entity}Dto`, `Update{Entity}Dto`)
+- [ ] Define application-specific errors with `thiserror`
+- [ ] Use `TransactionExecutor` for transaction boundaries (Command)
+
+### Infrastructure Layer
+- [ ] Implement Port adapters (external API clients)
+- [ ] Implement Command Repository (Domain traits)
+- [ ] Implement Query Repository (Application traits)
+- [ ] Define DB Row structs with `into_dto()` and `from_domain()`
+- [ ] Define DB enum types with domain conversion
+
+### Presentation Layer
+- [ ] Add GraphQL types (`{Entity}Gql`, `{Entity}ListGql`)
+- [ ] Add GraphQL Query (read operations)
+- [ ] Add GraphQL Mutation (write operations, if needed)
+- [ ] Add GraphQL Input types for mutations
+- [ ] Add DataLoader for N+1 prevention
+- [ ] Add CLI command (if needed)

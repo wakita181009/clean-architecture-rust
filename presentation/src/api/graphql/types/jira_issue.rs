@@ -1,7 +1,7 @@
 use async_graphql::{ID, Object};
 use chrono::{DateTime, Utc};
 
-use application::dto::jira::JiraIssueDto;
+use application::dto::query::jira::JiraIssueQueryDto;
 
 use super::{JiraIssuePriorityGql, JiraIssueTypeGql};
 
@@ -18,7 +18,7 @@ pub struct JiraIssueGql {
     pub updated_at: DateTime<Utc>,
 }
 
-#[Object]
+#[Object(name = "JiraIssue")]
 impl JiraIssueGql {
     async fn id(&self) -> ID {
         ID(self.id.to_string())
@@ -56,8 +56,8 @@ impl JiraIssueGql {
     }
 }
 
-impl From<JiraIssueDto> for JiraIssueGql {
-    fn from(dto: JiraIssueDto) -> Self {
+impl From<JiraIssueQueryDto> for JiraIssueGql {
+    fn from(dto: JiraIssueQueryDto) -> Self {
         Self {
             id: dto.id,
             key: dto.key,

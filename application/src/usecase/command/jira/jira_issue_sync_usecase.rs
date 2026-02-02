@@ -7,7 +7,7 @@ use futures::StreamExt;
 use domain::port::jira::JiraIssuePort;
 use domain::repository::jira::{JiraIssueRepository, JiraProjectRepository};
 
-use crate::error::jira::JiraIssueSyncError;
+use crate::error::command::jira::JiraIssueSyncError;
 
 /// Use case for syncing Jira issues from external API.
 #[async_trait]

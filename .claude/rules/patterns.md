@@ -18,8 +18,8 @@ pub trait JiraIssueRepository: Send + Sync {
 // application/src/repository/jira/jira_issue_query_repository.rs
 #[async_trait]
 pub trait JiraIssueQueryRepository: Send + Sync {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
-    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueQueryDto>, JiraError>;
 }
 ```
 
@@ -27,7 +27,7 @@ pub trait JiraIssueQueryRepository: Send + Sync {
 
 ```rust
 // application/src/dto/jira/jira_issue_dto.rs
-pub struct JiraIssueDto {
+pub struct JiraIssueQueryDto {
     pub id: i64,
     pub key: String,
     pub summary: String,
@@ -45,7 +45,7 @@ pub struct JiraIssueDto {
 // infrastructure/src/repository/query/jira/jira_issue_query_repository_impl.rs
 #[async_trait]
 impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraError> {
         let rows: Vec<JiraIssueRow> = sqlx::query_as(...)
             .fetch_all(&self.pool).await?;
 
@@ -53,6 +53,26 @@ impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
         Ok(rows.into_iter().map(|row| row.into_dto()).collect())
     }
 }
+```
+
+## GraphQL Type Naming Convention
+
+Rust struct names use `Gql` suffix to distinguish from domain types, but GraphQL schema uses clean names via `#[graphql(name)]`:
+
+```rust
+// Rust: JiraIssueGql (internal)
+// GraphQL Schema: JiraIssue (public API)
+#[Object(name = "JiraIssue")]
+impl JiraIssueGql { ... }
+
+// For InputObject and Enum
+#[derive(InputObject)]
+#[graphql(name = "CreateJiraProjectInput")]
+pub struct CreateJiraProjectInputGql { ... }
+
+#[derive(Enum)]
+#[graphql(name = "JiraIssueType")]
+pub enum JiraIssueTypeGql { ... }
 ```
 
 ## GraphQL Query (async-graphql)
@@ -65,7 +85,7 @@ pub struct JiraIssueQuery;
 #[Object]
 impl JiraIssueQuery {
     // Single issue via DataLoader (N+1 prevention)
-    async fn jira_issue(&self, ctx: &Context<'_>, id: ID) -> Result<Option<JiraIssue>> {
+    async fn jira_issue(&self, ctx: &Context<'_>, id: ID) -> Result<Option<JiraIssueGql>> {
         let loader = ctx.data_unchecked::<DataLoader<JiraIssueLoader>>();
         loader.load_one(id.parse()?).await
     }
@@ -76,13 +96,55 @@ impl JiraIssueQuery {
         ctx: &Context<'_>,
         page_number: Option<i32>,
         page_size: Option<i32>,
-    ) -> Result<JiraIssueList> {
+    ) -> Result<JiraIssueListGql> {
         let usecase = ctx.data_unchecked::<Arc<dyn JiraIssueListQueryUseCase>>();
         let result = usecase.execute(
             page_number.unwrap_or(1),
             page_size.unwrap_or(100),
         ).await?;
-        Ok(JiraIssueList::from_dto(result))
+        Ok(JiraIssueListGql::from_dto(result))
+    }
+}
+```
+
+## GraphQL Mutation (async-graphql)
+
+```rust
+use async_graphql::{Context, Object, Result};
+
+pub struct JiraProjectMutation;
+
+#[Object]
+impl JiraProjectMutation {
+    // Create project (uses Command UseCase)
+    async fn create_jira_project(
+        &self,
+        ctx: &Context<'_>,
+        input: CreateJiraProjectInputGql,
+    ) -> Result<JiraProjectGql> {
+        let usecase = ctx.data_unchecked::<Arc<dyn JiraProjectCreateUseCase>>();
+        let dto = CreateJiraProjectDto {
+            key: input.key,
+            name: input.name,
+        };
+        let project = usecase.execute(dto).await?;
+        Ok(JiraProjectGql::from(project))
+    }
+
+    // Update project (uses Command UseCase)
+    async fn update_jira_project(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateJiraProjectInputGql,
+    ) -> Result<JiraProjectGql> {
+        let usecase = ctx.data_unchecked::<Arc<dyn JiraProjectUpdateUseCase>>();
+        let dto = UpdateJiraProjectDto {
+            id: input.id,
+            key: input.key,
+            name: input.name,
+        };
+        let project = usecase.execute(dto).await?;
+        Ok(JiraProjectGql::from(project))
     }
 }
 ```
@@ -117,8 +179,8 @@ impl JiraIssueRepository for JiraIssueRepositoryImpl {
 // Trait (application layer - returns DTOs)
 #[async_trait]
 pub trait JiraIssueQueryRepository: Send + Sync {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError>;
-    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueDto>, JiraError>;
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraError>;
+    async fn list(&self, page: PageNumber, size: PageSize) -> Result<Page<JiraIssueQueryDto>, JiraError>;
 }
 
 // Implementation (infrastructure layer)
@@ -126,7 +188,7 @@ pub struct JiraIssueQueryRepositoryImpl { pool: PgPool }
 
 #[async_trait]
 impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraError> {
         let rows: Vec<JiraIssueRow> = sqlx::query_as(...)
             .fetch_all(&self.pool).await?;
 
@@ -166,7 +228,7 @@ where
 // Trait (application layer) - note "Query" suffix
 #[async_trait]
 pub trait JiraIssueFindByIdsQueryUseCase: Send + Sync {
-    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError>;
+    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraIssueFindByIdError>;
 }
 
 // Implementation - uses Query Repository, returns DTO
@@ -176,7 +238,7 @@ pub struct JiraIssueFindByIdsQueryUseCaseImpl<R: JiraIssueQueryRepository> {
 
 #[async_trait]
 impl<R: JiraIssueQueryRepository> JiraIssueFindByIdsQueryUseCase for JiraIssueFindByIdsQueryUseCaseImpl<R> {
-    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraIssueFindByIdError> {
+    async fn execute(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueQueryDto>, JiraIssueFindByIdError> {
         self.repository
             .find_by_ids(ids)
             .await
@@ -295,8 +357,8 @@ pub struct JiraIssueLoader {
 
 #[async_trait]
 impl Loader<i64> for JiraIssueLoader {
-    type Value = JiraIssue;  // GraphQL type (converted from DTO)
-    type Error = Arc<JiraIssueFindByIdError>;
+    type Value = JiraIssueGql;  // GraphQL type (converted from DTO)
+    type Error = Arc<JiraIssueFindByIdQueryError>;
 
     async fn load(&self, keys: &[i64]) -> Result<HashMap<i64, Self::Value>, Self::Error> {
         let ids: Vec<JiraIssueId> = keys.iter().map(|&id| JiraIssueId::new(id)).collect();
@@ -306,8 +368,67 @@ impl Loader<i64> for JiraIssueLoader {
 
         // Convert DTO to GraphQL type
         Ok(dtos.into_iter()
-            .map(|dto| (dto.id, JiraIssue::from(dto)))
+            .map(|dto| (dto.id, JiraIssueGql::from(dto)))
             .collect())
     }
+}
+```
+
+## Command DTO Pattern
+
+```rust
+// Command DTOs are input data for write operations
+// Located in application/dto/command/
+
+// For creating new entities
+pub struct CreateJiraProjectDto {
+    pub key: String,
+    pub name: String,
+}
+
+// For updating existing entities
+pub struct UpdateJiraProjectDto {
+    pub id: i64,
+    pub key: Option<String>,   // None = no change
+    pub name: Option<String>,
+}
+
+// Usage in UseCase
+#[async_trait]
+pub trait JiraProjectCreateUseCase: Send + Sync {
+    async fn execute(&self, dto: CreateJiraProjectDto) -> Result<JiraProject, JiraProjectCreateError>;
+}
+```
+
+## Application Error Pattern (CQRS)
+
+```rust
+// Command Error: {Entity}{Action}Error
+// Located in application/error/command/{category}/
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum JiraProjectCreateError {
+    #[error("Project creation failed: {0}")]
+    CreationFailed(#[from] JiraError),
+
+    #[error("Transaction failed: {0}")]
+    TransactionFailed(#[from] TransactionError),
+}
+
+// Query Error: {Entity}{Action}QueryError
+// Located in application/error/query/{category}/
+
+#[derive(Error, Debug)]
+pub enum JiraIssueFindByIdQueryError {
+    #[error("Issue fetch failed: {0}")]
+    IssueFetchFailed(#[from] JiraError),
+}
+
+#[derive(Error, Debug)]
+pub enum JiraIssueListQueryError {
+    #[error("Issue list fetch failed: {0}")]
+    IssueFetchFailed(#[from] JiraError),
 }
 ```

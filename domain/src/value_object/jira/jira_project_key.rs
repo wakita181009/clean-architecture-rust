@@ -14,7 +14,7 @@ impl JiraProjectKey {
     pub fn of(value: impl Into<String>) -> Result<Self, JiraError> {
         let value = value.into();
         if value.is_empty() {
-            return Err(JiraError::validation_error("Project key cannot be empty"));
+            return Err(JiraError::empty_project_key());
         }
         Ok(Self(value))
     }
@@ -66,8 +66,11 @@ mod tests {
 
     #[test]
     fn test_jira_project_key_of_empty() {
-        let key = JiraProjectKey::of("");
-        assert!(key.is_err());
+        let result = JiraProjectKey::of("");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::EmptyProjectKey));
+        assert_eq!(err.to_string(), "Project key cannot be empty");
     }
 
     #[test]

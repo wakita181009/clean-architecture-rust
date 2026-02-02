@@ -1,6 +1,6 @@
 use async_graphql::{ID, Object};
 
-use application::dto::jira::JiraProjectDto;
+use application::dto::query::jira::JiraProjectQueryDto;
 use domain::entity::jira::JiraProject;
 
 /// GraphQL representation of a Jira project.
@@ -11,7 +11,7 @@ pub struct JiraProjectGql {
     pub name: String,
 }
 
-#[Object]
+#[Object(name = "JiraProject")]
 impl JiraProjectGql {
     async fn id(&self) -> ID {
         ID(self.id.to_string())
@@ -36,8 +36,8 @@ impl From<JiraProject> for JiraProjectGql {
     }
 }
 
-impl From<JiraProjectDto> for JiraProjectGql {
-    fn from(dto: JiraProjectDto) -> Self {
+impl From<JiraProjectQueryDto> for JiraProjectGql {
+    fn from(dto: JiraProjectQueryDto) -> Self {
         Self {
             id: dto.id,
             key: dto.key,

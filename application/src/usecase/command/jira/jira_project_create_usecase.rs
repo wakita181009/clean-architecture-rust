@@ -5,15 +5,8 @@ use async_trait::async_trait;
 use domain::entity::jira::JiraProject;
 use domain::repository::jira::JiraProjectRepository;
 
-use crate::error::jira::JiraProjectCreateError;
-
-/// Dto for creating a Jira project.
-#[derive(Debug, Clone)]
-pub struct CreateJiraProjectDto {
-    pub id: String,
-    pub key: String,
-    pub name: String,
-}
+use crate::dto::command::jira::CreateJiraProjectDto;
+use crate::error::command::jira::JiraProjectCreateError;
 
 /// Use case for creating a Jira project.
 #[async_trait]

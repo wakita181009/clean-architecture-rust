@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-use application::dto::jira::JiraIssueDto;
+use application::dto::query::jira::JiraIssueQueryDto;
 use application::repository::jira::JiraIssueQueryRepository;
 use domain::error::JiraError;
 use domain::value_object::jira::JiraIssueId;
@@ -22,7 +22,10 @@ impl JiraIssueQueryRepositoryImpl {
 
 #[async_trait]
 impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
-    async fn find_by_ids(&self, ids: Vec<JiraIssueId>) -> Result<Vec<JiraIssueDto>, JiraError> {
+    async fn find_by_ids(
+        &self,
+        ids: Vec<JiraIssueId>,
+    ) -> Result<Vec<JiraIssueQueryDto>, JiraError> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
@@ -49,7 +52,7 @@ impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
         &self,
         page_number: PageNumber,
         page_size: PageSize,
-    ) -> Result<Page<JiraIssueDto>, JiraError> {
+    ) -> Result<Page<JiraIssueQueryDto>, JiraError> {
         let offset = (page_number.value() - 1) * page_size.value();
         let limit = page_size.value();
 
@@ -74,7 +77,7 @@ impl JiraIssueQueryRepository for JiraIssueQueryRepositoryImpl {
         .await
         .map_err(|e| JiraError::database_error_with_cause("Failed to fetch issues", e))?;
 
-        let items: Vec<JiraIssueDto> = rows.into_iter().map(|row| row.into_dto()).collect();
+        let items: Vec<JiraIssueQueryDto> = rows.into_iter().map(|row| row.into_dto()).collect();
 
         Ok(Page::new(total_count.0 as i32, items))
     }

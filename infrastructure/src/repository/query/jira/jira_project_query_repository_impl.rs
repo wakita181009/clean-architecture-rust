@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-use application::dto::jira::JiraProjectDto;
+use application::dto::query::jira::JiraProjectQueryDto;
 use application::repository::jira::JiraProjectQueryRepository;
 use domain::error::JiraError;
 use domain::value_object::jira::JiraProjectId;
@@ -22,7 +22,10 @@ impl JiraProjectQueryRepositoryImpl {
 
 #[async_trait]
 impl JiraProjectQueryRepository for JiraProjectQueryRepositoryImpl {
-    async fn find_by_ids(&self, ids: Vec<JiraProjectId>) -> Result<Vec<JiraProjectDto>, JiraError> {
+    async fn find_by_ids(
+        &self,
+        ids: Vec<JiraProjectId>,
+    ) -> Result<Vec<JiraProjectQueryDto>, JiraError> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
@@ -49,7 +52,7 @@ impl JiraProjectQueryRepository for JiraProjectQueryRepositoryImpl {
         &self,
         page_number: PageNumber,
         page_size: PageSize,
-    ) -> Result<Page<JiraProjectDto>, JiraError> {
+    ) -> Result<Page<JiraProjectQueryDto>, JiraError> {
         let offset = (page_number.value() - 1) * page_size.value();
         let limit = page_size.value();
 
@@ -74,7 +77,7 @@ impl JiraProjectQueryRepository for JiraProjectQueryRepositoryImpl {
         .await
         .map_err(|e| JiraError::database_error_with_cause("Failed to fetch projects", e))?;
 
-        let items: Vec<JiraProjectDto> = rows.into_iter().map(|row| row.into_dto()).collect();
+        let items: Vec<JiraProjectQueryDto> = rows.into_iter().map(|row| row.into_dto()).collect();
 
         Ok(Page::new(total_count.0 as i32, items))
     }

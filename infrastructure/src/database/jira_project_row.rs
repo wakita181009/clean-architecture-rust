@@ -1,4 +1,4 @@
-use application::dto::jira::JiraProjectDto;
+use application::dto::query::jira::JiraProjectQueryDto;
 use domain::entity::jira::JiraProject;
 use domain::value_object::jira::{JiraProjectId, JiraProjectKey, JiraProjectName};
 use sqlx::FromRow;
@@ -35,7 +35,7 @@ impl JiraProjectRow {
     }
 
     /// Converts database row to DTO for query operations.
-    pub fn into_dto(self) -> JiraProjectDto {
-        JiraProjectDto::new(self.id, self.key, self.name)
+    pub fn into_dto(self) -> JiraProjectQueryDto {
+        JiraProjectQueryDto::new(self.id, self.key, self.name)
     }
 }

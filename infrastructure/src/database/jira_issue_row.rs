@@ -1,4 +1,4 @@
-use application::dto::jira::JiraIssueDto;
+use application::dto::query::jira::JiraIssueQueryDto;
 use chrono::{DateTime, Utc};
 use domain::entity::jira::JiraIssue;
 use domain::value_object::jira::{JiraIssuePriority, JiraIssueType};
@@ -38,8 +38,8 @@ impl JiraIssueRow {
 
     /// Converts directly to DTO without going through domain entity.
     /// This is more efficient for query operations.
-    pub fn into_dto(self) -> JiraIssueDto {
-        JiraIssueDto::new(
+    pub fn into_dto(self) -> JiraIssueQueryDto {
+        JiraIssueQueryDto::new(
             self.id,
             self.key,
             self.summary,

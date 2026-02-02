@@ -1,3 +1,5 @@
+use crate::error::JiraError;
+
 /// Represents the type of a Jira issue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum JiraIssueType {
@@ -22,7 +24,7 @@ impl JiraIssueType {
 }
 
 impl std::str::FromStr for JiraIssueType {
-    type Err = ();
+    type Err = JiraError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -31,7 +33,7 @@ impl std::str::FromStr for JiraIssueType {
             "task" => Ok(Self::Task),
             "subtask" => Ok(Self::Subtask),
             "bug" => Ok(Self::Bug),
-            _ => Err(()),
+            _ => Err(JiraError::unknown_issue_type(s)),
         }
     }
 }
@@ -56,16 +58,33 @@ mod tests {
     }
 
     #[test]
-    fn test_jira_issue_type_from_str() {
-        assert_eq!("epic".parse::<JiraIssueType>(), Ok(JiraIssueType::Epic));
-        assert_eq!("STORY".parse::<JiraIssueType>(), Ok(JiraIssueType::Story));
-        assert_eq!("Task".parse::<JiraIssueType>(), Ok(JiraIssueType::Task));
+    fn test_jira_issue_type_from_str_valid() {
         assert_eq!(
-            "subtask".parse::<JiraIssueType>(),
-            Ok(JiraIssueType::Subtask)
+            "epic".parse::<JiraIssueType>().unwrap(),
+            JiraIssueType::Epic
         );
-        assert_eq!("Bug".parse::<JiraIssueType>(), Ok(JiraIssueType::Bug));
-        assert!("unknown".parse::<JiraIssueType>().is_err());
+        assert_eq!(
+            "STORY".parse::<JiraIssueType>().unwrap(),
+            JiraIssueType::Story
+        );
+        assert_eq!(
+            "Task".parse::<JiraIssueType>().unwrap(),
+            JiraIssueType::Task
+        );
+        assert_eq!(
+            "subtask".parse::<JiraIssueType>().unwrap(),
+            JiraIssueType::Subtask
+        );
+        assert_eq!("Bug".parse::<JiraIssueType>().unwrap(), JiraIssueType::Bug);
+    }
+
+    #[test]
+    fn test_jira_issue_type_from_str_invalid() {
+        let result = "unknown".parse::<JiraIssueType>();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::UnknownIssueType { .. }));
+        assert_eq!(err.to_string(), "Unknown issue type: unknown");
     }
 
     #[test]

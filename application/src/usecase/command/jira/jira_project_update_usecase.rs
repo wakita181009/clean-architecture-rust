@@ -6,15 +6,8 @@ use domain::entity::jira::JiraProject;
 use domain::repository::jira::JiraProjectRepository;
 use domain::value_object::jira::JiraProjectId;
 
-use crate::error::jira::JiraProjectUpdateError;
-
-/// Dto for updating a Jira project.
-#[derive(Debug, Clone)]
-pub struct UpdateJiraProjectDto {
-    pub id: String,
-    pub key: String,
-    pub name: String,
-}
+use crate::dto::command::jira::UpdateJiraProjectDto;
+use crate::error::command::jira::JiraProjectUpdateError;
 
 /// Use case for updating a Jira project.
 #[async_trait]

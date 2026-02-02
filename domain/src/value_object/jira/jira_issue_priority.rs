@@ -1,3 +1,5 @@
+use crate::error::JiraError;
+
 /// Represents the priority of a Jira issue.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum JiraIssuePriority {
@@ -22,7 +24,7 @@ impl JiraIssuePriority {
 }
 
 impl std::str::FromStr for JiraIssuePriority {
-    type Err = ();
+    type Err = JiraError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -31,7 +33,7 @@ impl std::str::FromStr for JiraIssuePriority {
             "medium" => Ok(Self::Medium),
             "low" => Ok(Self::Low),
             "lowest" => Ok(Self::Lowest),
-            _ => Err(()),
+            _ => Err(JiraError::unknown_priority(s)),
         }
     }
 }
@@ -56,28 +58,36 @@ mod tests {
     }
 
     #[test]
-    fn test_jira_issue_priority_from_str() {
+    fn test_jira_issue_priority_from_str_valid() {
         assert_eq!(
-            "highest".parse::<JiraIssuePriority>(),
-            Ok(JiraIssuePriority::Highest)
+            "highest".parse::<JiraIssuePriority>().unwrap(),
+            JiraIssuePriority::Highest
         );
         assert_eq!(
-            "HIGH".parse::<JiraIssuePriority>(),
-            Ok(JiraIssuePriority::High)
+            "HIGH".parse::<JiraIssuePriority>().unwrap(),
+            JiraIssuePriority::High
         );
         assert_eq!(
-            "Medium".parse::<JiraIssuePriority>(),
-            Ok(JiraIssuePriority::Medium)
+            "Medium".parse::<JiraIssuePriority>().unwrap(),
+            JiraIssuePriority::Medium
         );
         assert_eq!(
-            "low".parse::<JiraIssuePriority>(),
-            Ok(JiraIssuePriority::Low)
+            "low".parse::<JiraIssuePriority>().unwrap(),
+            JiraIssuePriority::Low
         );
         assert_eq!(
-            "lowest".parse::<JiraIssuePriority>(),
-            Ok(JiraIssuePriority::Lowest)
+            "lowest".parse::<JiraIssuePriority>().unwrap(),
+            JiraIssuePriority::Lowest
         );
-        assert!("unknown".parse::<JiraIssuePriority>().is_err());
+    }
+
+    #[test]
+    fn test_jira_issue_priority_from_str_invalid() {
+        let result = "unknown".parse::<JiraIssuePriority>();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::UnknownPriority { .. }));
+        assert_eq!(err.to_string(), "Unknown priority: unknown");
     }
 
     #[test]

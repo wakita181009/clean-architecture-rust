@@ -38,7 +38,11 @@ impl JiraIssueAdapterImpl {
 
     /// Builds the JQL query for fetching issues.
     fn build_jql(&self, project_keys: &[JiraProjectKey], since: DateTime<Utc>) -> String {
-        let keys: Vec<&str> = project_keys.iter().map(|k| k.value()).collect();
+        // Quote each project key to handle reserved words like "IS"
+        let keys: Vec<String> = project_keys
+            .iter()
+            .map(|k| format!("\"{}\"", k.value()))
+            .collect();
         let keys_str = keys.join(", ");
         let since_str = since.format("%Y-%m-%d %H:%M").to_string();
 

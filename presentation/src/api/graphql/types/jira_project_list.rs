@@ -1,6 +1,6 @@
 use async_graphql::Object;
 
-use application::dto::jira::JiraProjectDto;
+use application::dto::query::jira::JiraProjectQueryDto;
 use domain::value_object::Page;
 
 use super::JiraProjectGql;
@@ -11,7 +11,7 @@ pub struct JiraProjectListGql {
     pub items: Vec<JiraProjectGql>,
 }
 
-#[Object]
+#[Object(name = "JiraProjectList")]
 impl JiraProjectListGql {
     #[graphql(name = "totalCount")]
     async fn total_count(&self) -> i32 {
@@ -23,8 +23,8 @@ impl JiraProjectListGql {
     }
 }
 
-impl From<Page<JiraProjectDto>> for JiraProjectListGql {
-    fn from(page: Page<JiraProjectDto>) -> Self {
+impl From<Page<JiraProjectQueryDto>> for JiraProjectListGql {
+    fn from(page: Page<JiraProjectQueryDto>) -> Self {
         Self {
             total_count: page.total_count,
             items: page.items.into_iter().map(JiraProjectGql::from).collect(),

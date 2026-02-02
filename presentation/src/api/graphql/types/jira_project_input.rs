@@ -1,9 +1,10 @@
 use async_graphql::{ID, InputObject};
 
-use application::usecase::command::jira::{CreateJiraProjectDto, UpdateJiraProjectDto};
+use application::dto::command::jira::{CreateJiraProjectDto, UpdateJiraProjectDto};
 
 /// Input for creating a Jira project.
 #[derive(InputObject)]
+#[graphql(name = "CreateJiraProjectInput")]
 pub struct CreateJiraProjectInputGql {
     /// The project ID.
     pub id: ID,
@@ -25,6 +26,7 @@ impl From<CreateJiraProjectInputGql> for CreateJiraProjectDto {
 
 /// Input for updating a Jira project.
 #[derive(InputObject)]
+#[graphql(name = "UpdateJiraProjectInput")]
 pub struct UpdateJiraProjectInputGql {
     /// The project ID.
     pub id: ID,

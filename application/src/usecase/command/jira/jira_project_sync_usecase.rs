@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use domain::port::jira::JiraProjectPort;
 use domain::repository::jira::JiraProjectRepository;
 
-use crate::error::jira::JiraProjectSyncError;
+use crate::error::command::jira::JiraProjectSyncError;
 
 /// Use case for syncing Jira projects from external API.
 #[async_trait]

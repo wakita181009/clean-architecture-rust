@@ -12,15 +12,18 @@ impl JiraProjectName {
         Self(value.into())
     }
 
+    const MAX_LENGTH: usize = 255;
+
     /// Creates a new JiraProjectName with validation.
     pub fn of(value: impl Into<String>) -> Result<Self, JiraError> {
         let value = value.into();
         if value.is_empty() {
-            return Err(JiraError::validation_error("Project name cannot be empty"));
+            return Err(JiraError::empty_project_name());
         }
-        if value.len() > 255 {
-            return Err(JiraError::validation_error(
-                "Project name cannot exceed 255 characters",
+        if value.len() > Self::MAX_LENGTH {
+            return Err(JiraError::project_name_too_long(
+                value.len(),
+                Self::MAX_LENGTH,
             ));
         }
         Ok(Self(value))
@@ -73,15 +76,30 @@ mod tests {
 
     #[test]
     fn test_jira_project_name_of_empty() {
-        let name = JiraProjectName::of("");
-        assert!(name.is_err());
+        let result = JiraProjectName::of("");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, JiraError::EmptyProjectName));
+        assert_eq!(err.to_string(), "Project name cannot be empty");
     }
 
     #[test]
     fn test_jira_project_name_of_too_long() {
         let long_name = "a".repeat(256);
-        let name = JiraProjectName::of(long_name);
-        assert!(name.is_err());
+        let result = JiraProjectName::of(long_name);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err,
+            JiraError::ProjectNameTooLong {
+                length: 256,
+                max: 255
+            }
+        ));
+        assert_eq!(
+            err.to_string(),
+            "Project name exceeds maximum length (256 > 255)"
+        );
     }
 
     #[test]
