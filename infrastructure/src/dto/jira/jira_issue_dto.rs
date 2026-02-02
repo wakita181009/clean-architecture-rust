@@ -8,7 +8,7 @@ use domain::value_object::jira::{
 
 /// Request body for Jira search API.
 #[derive(Debug, Serialize)]
-pub struct JiraSearchRequest {
+pub struct JiraSearchRequestDto {
     pub jql: String,
     pub fields: Vec<String>,
     #[serde(rename = "maxResults")]
@@ -19,8 +19,8 @@ pub struct JiraSearchRequest {
 
 /// Response from Jira search API.
 #[derive(Debug, Deserialize)]
-pub struct JiraSearchResponse {
-    pub issues: Vec<JiraIssueResponse>,
+pub struct JiraSearchResponseDto {
+    pub issues: Vec<JiraIssueResponseDto>,
     #[serde(rename = "isLast", default)]
     pub is_last: bool,
     #[serde(rename = "nextPageToken")]
@@ -29,13 +29,13 @@ pub struct JiraSearchResponse {
 
 /// Single issue in Jira search response.
 #[derive(Debug, Deserialize)]
-pub struct JiraIssueResponse {
+pub struct JiraIssueResponseDto {
     pub id: String,
     pub key: String,
-    pub fields: JiraIssueFields,
+    pub fields: JiraIssueFieldsDto,
 }
 
-impl JiraIssueResponse {
+impl JiraIssueResponseDto {
     /// Converts the API response to a domain entity, consuming self.
     /// Returns None if the response cannot be converted (e.g., unknown issue type or priority).
     pub fn into_domain(self) -> Option<JiraIssue> {
@@ -43,12 +43,7 @@ impl JiraIssueResponse {
         let issue_type: JiraIssueType = self.fields.issuetype.name.parse().ok()?;
         let priority: JiraIssuePriority = self.fields.priority.name.parse().ok()?;
 
-        // Convert description from ADF (Atlassian Document Format) to plain text or JSON string
-        let description = self
-            .fields
-            .description
-            .as_ref()
-            .map(|adf| extract_text_from_adf(adf));
+        let description = self.fields.description.as_ref().map(extract_text_from_adf);
 
         Some(JiraIssue::new(
             JiraIssueId::new(id),
@@ -75,16 +70,13 @@ fn extract_text_from_adf(adf: &serde_json::Value) -> String {
 fn extract_text_recursive(value: &serde_json::Value, output: &mut String) {
     match value {
         serde_json::Value::Object(obj) => {
-            // Check if this is a text node
             if let Some(serde_json::Value::String(t)) = obj.get("text") {
                 output.push_str(t);
             }
-            // Recursively process content array
             if let Some(serde_json::Value::Array(content)) = obj.get("content") {
                 for item in content {
                     extract_text_recursive(item, output);
                 }
-                // Add newline after paragraph
                 if obj.get("type") == Some(&serde_json::Value::String("paragraph".to_string())) {
                     output.push('\n');
                 }
@@ -101,20 +93,20 @@ fn extract_text_recursive(value: &serde_json::Value, output: &mut String) {
 
 /// Fields of a Jira issue.
 #[derive(Debug, Deserialize)]
-pub struct JiraIssueFields {
-    pub project: JiraProjectResponse,
+pub struct JiraIssueFieldsDto {
+    pub project: JiraIssueProjectDto,
     pub summary: String,
     /// Description in Atlassian Document Format (ADF) - a JSON structure for rich text
     pub description: Option<serde_json::Value>,
-    pub issuetype: JiraIssueTypeResponse,
-    pub priority: JiraPriorityResponse,
+    pub issuetype: JiraIssueTypeDto,
+    pub priority: JiraPriorityDto,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
 }
 
-/// Project information in Jira response.
+/// Project information in Jira issue response.
 #[derive(Debug, Deserialize)]
-pub struct JiraProjectResponse {
+pub struct JiraIssueProjectDto {
     pub id: String,
     #[allow(dead_code)]
     pub key: String,
@@ -122,12 +114,12 @@ pub struct JiraProjectResponse {
 
 /// Issue type information in Jira response.
 #[derive(Debug, Deserialize)]
-pub struct JiraIssueTypeResponse {
+pub struct JiraIssueTypeDto {
     pub name: String,
 }
 
 /// Priority information in Jira response.
 #[derive(Debug, Deserialize)]
-pub struct JiraPriorityResponse {
+pub struct JiraPriorityDto {
     pub name: String,
 }

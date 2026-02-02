@@ -1,5 +1,5 @@
+use application::dto::jira::JiraProjectDto;
 use domain::entity::jira::JiraProject;
-use domain::error::JiraError;
 use domain::value_object::jira::{JiraProjectId, JiraProjectKey, JiraProjectName};
 use sqlx::FromRow;
 
@@ -8,7 +8,7 @@ use sqlx::FromRow;
 pub struct JiraProjectRow {
     pub id: i64,
     pub key: String,
-    pub name: Option<String>,
+    pub name: String,
 }
 
 impl JiraProjectRow {
@@ -20,18 +20,22 @@ impl JiraProjectRow {
         Self {
             id: project.id.value(),
             key: project.key.value().to_string(),
-            name: Some(project.name.value().to_string()),
+            name: project.name.value().to_string(),
         }
     }
 
-    pub fn into_domain(self) -> Result<JiraProject, JiraError> {
-        let name = self.name.unwrap_or_default();
-        let name = JiraProjectName::of(name)?;
-
-        Ok(JiraProject::new(
+    /// Converts database row to domain entity.
+    /// Uses `new` instead of `of` to skip validation since DB data is already valid.
+    pub fn into_domain(self) -> JiraProject {
+        JiraProject::new(
             JiraProjectId::new(self.id),
-            JiraProjectKey::new(&self.key),
-            name,
-        ))
+            JiraProjectKey::new(self.key.clone()),
+            JiraProjectName::new(self.name.clone()),
+        )
+    }
+
+    /// Converts database row to DTO for query operations.
+    pub fn into_dto(self) -> JiraProjectDto {
+        JiraProjectDto::new(self.id, self.key, self.name)
     }
 }

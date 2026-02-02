@@ -15,7 +15,7 @@ impl JiraProjectId {
         let value = value.into();
         let id = value
             .parse::<i64>()
-            .map_err(|e| JiraError::invalid_id_with_cause(e))?;
+            .map_err(JiraError::invalid_id_with_cause)?;
 
         if id <= 0 {
             return Err(JiraError::validation_error(format!(

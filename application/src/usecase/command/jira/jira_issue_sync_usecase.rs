@@ -5,10 +5,9 @@ use chrono::{DateTime, Utc};
 use futures::StreamExt;
 
 use domain::port::jira::JiraIssuePort;
-use domain::repository::jira::JiraIssueRepository;
+use domain::repository::jira::{JiraIssueRepository, JiraProjectRepository};
 
 use crate::error::jira::JiraIssueSyncError;
-use crate::repository::jira::JiraProjectRepository;
 
 /// Use case for syncing Jira issues from external API.
 #[async_trait]
@@ -138,6 +137,27 @@ mod tests {
         ) -> Result<domain::entity::jira::JiraProject, JiraError> {
             Ok(project)
         }
+
+        async fn update(
+            &self,
+            project: domain::entity::jira::JiraProject,
+        ) -> Result<domain::entity::jira::JiraProject, JiraError> {
+            Ok(project)
+        }
+
+        async fn find_by_id(
+            &self,
+            _id: domain::value_object::jira::JiraProjectId,
+        ) -> Result<Option<domain::entity::jira::JiraProject>, JiraError> {
+            Ok(None)
+        }
+
+        async fn bulk_upsert(
+            &self,
+            projects: Vec<domain::entity::jira::JiraProject>,
+        ) -> Result<Vec<domain::entity::jira::JiraProject>, JiraError> {
+            Ok(projects)
+        }
     }
 
     struct MockJiraIssueRepository {
@@ -234,6 +254,44 @@ mod tests {
         assert!(matches!(
             result.unwrap_err(),
             JiraIssueSyncError::ProjectKeyFetchFailed(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn execute_should_return_zero_when_no_issues() {
+        let project_repo = Arc::new(MockJiraProjectRepository::new(Ok(vec![
+            JiraProjectKey::new("TEST"),
+        ])));
+        let issue_repo = Arc::new(MockJiraIssueRepository::new(Ok(vec![])));
+        let issue_port = Arc::new(MockJiraIssuePort::new(vec![]));
+
+        let usecase = JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port);
+
+        let result = usecase.execute(Utc::now()).await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn execute_should_return_issue_persist_failed_when_repository_fails() {
+        let project_repo = Arc::new(MockJiraProjectRepository::new(Ok(vec![
+            JiraProjectKey::new("TEST"),
+        ])));
+        let issue_repo = Arc::new(MockJiraIssueRepository::new(Err(
+            JiraError::database_error("Insert failed"),
+        )));
+        let issues = vec![vec![create_test_issue(1)]];
+        let issue_port = Arc::new(MockJiraIssuePort::new(issues));
+
+        let usecase = JiraIssueSyncUseCaseImpl::new(project_repo, issue_repo, issue_port);
+
+        let result = usecase.execute(Utc::now()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            JiraIssueSyncError::IssuePersistFailed(_)
         ));
     }
 }

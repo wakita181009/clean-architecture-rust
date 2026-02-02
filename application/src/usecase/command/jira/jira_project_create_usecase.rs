@@ -93,12 +93,30 @@ mod tests {
             Ok(vec![])
         }
 
+        async fn find_by_id(
+            &self,
+            _id: domain::value_object::jira::JiraProjectId,
+        ) -> Result<Option<JiraProject>, JiraError> {
+            Ok(None)
+        }
+
         async fn create(&self, project: JiraProject) -> Result<JiraProject, JiraError> {
             self.create_result
                 .lock()
                 .unwrap()
                 .take()
                 .unwrap_or(Ok(project))
+        }
+
+        async fn update(&self, project: JiraProject) -> Result<JiraProject, JiraError> {
+            Ok(project)
+        }
+
+        async fn bulk_upsert(
+            &self,
+            projects: Vec<JiraProject>,
+        ) -> Result<Vec<JiraProject>, JiraError> {
+            Ok(projects)
         }
     }
 

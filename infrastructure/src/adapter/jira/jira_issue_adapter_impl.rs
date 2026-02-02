@@ -12,31 +12,13 @@ use domain::error::JiraError;
 use domain::port::jira::JiraIssuePort;
 use domain::value_object::jira::JiraProjectKey;
 
-use super::jira_api_dto::{JiraSearchRequest, JiraSearchResponse};
+use super::jira_api_config::JiraApiConfig;
+use crate::dto::jira::{JiraIssueResponseDto, JiraSearchRequestDto, JiraSearchResponseDto};
 
 const MAX_RESULTS: i32 = 100;
 const API_CALL_DELAY_MS: u64 = 1000;
 const INITIAL_BACKOFF_MS: u64 = 500;
 const MAX_ELAPSED_SECS: u64 = 30;
-
-/// Configuration for Jira API client.
-#[derive(Debug, Clone)]
-pub struct JiraApiConfig {
-    pub base_url: String,
-    pub email: String,
-    pub api_token: String,
-}
-
-impl JiraApiConfig {
-    /// Creates a new JiraApiConfig from environment variables.
-    pub fn from_env() -> Result<Self, std::env::VarError> {
-        Ok(Self {
-            base_url: std::env::var("JIRA_BASE_URL")?,
-            email: std::env::var("JIRA_EMAIL")?,
-            api_token: std::env::var("JIRA_API_TOKEN")?,
-        })
-    }
-}
 
 /// Implementation of JiraIssuePort that fetches issues from Jira REST API v3.
 pub struct JiraIssueAdapterImpl {
@@ -68,10 +50,10 @@ impl JiraIssueAdapterImpl {
         &self,
         jql: &str,
         next_page_token: Option<String>,
-    ) -> Result<JiraSearchResponse, JiraError> {
+    ) -> Result<JiraSearchResponseDto, JiraError> {
         let url = format!("{}/rest/api/3/search/jql", self.config.base_url);
 
-        let request = JiraSearchRequest {
+        let request = JiraSearchRequestDto {
             jql: jql.to_string(),
             fields: vec![
                 "project".to_string(),
@@ -114,8 +96,8 @@ impl JiraIssueAdapterImpl {
     async fn do_fetch(
         &self,
         url: &str,
-        request: &JiraSearchRequest,
-    ) -> Result<JiraSearchResponse, JiraError> {
+        request: &JiraSearchRequestDto,
+    ) -> Result<JiraSearchResponseDto, JiraError> {
         debug!("Fetching issues from Jira: jql={}", request.jql);
 
         let response = self
@@ -138,7 +120,7 @@ impl JiraIssueAdapterImpl {
         }
 
         response
-            .json::<JiraSearchResponse>()
+            .json::<JiraSearchResponseDto>()
             .await
             .map_err(|e| JiraError::api_error_with_cause("Failed to parse Jira response", e))
     }
@@ -175,7 +157,7 @@ impl JiraIssuePort for JiraIssueAdapterImpl {
                         let issues: Vec<JiraIssue> = response
                             .issues
                             .into_iter()
-                            .filter_map(|issue| issue.into_domain())
+                            .filter_map(|issue: JiraIssueResponseDto| issue.into_domain())
                             .collect();
 
                         let next = if response.is_last {

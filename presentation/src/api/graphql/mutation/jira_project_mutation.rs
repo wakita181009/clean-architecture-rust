@@ -1,33 +1,13 @@
 use std::sync::Arc;
 
-use async_graphql::{Context, ID, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
 
-use application::usecase::command::jira::{CreateJiraProjectDto, JiraProjectCreateUseCase};
+use application::usecase::command::jira::{JiraProjectCreateUseCase, JiraProjectUpdateUseCase};
 
-use super::super::types::JiraProjectGql;
-
-/// Input for creating a Jira project.
-#[derive(InputObject)]
-pub struct CreateJiraProjectInputGql {
-    /// The project ID.
-    pub id: ID,
-    /// The project key (e.g., "PROJ").
-    pub key: String,
-    /// The project name.
-    pub name: String,
-}
-
-impl From<CreateJiraProjectInputGql> for CreateJiraProjectDto {
-    fn from(input: CreateJiraProjectInputGql) -> Self {
-        Self {
-            id: input.id.to_string(),
-            key: input.key,
-            name: input.name,
-        }
-    }
-}
+use super::super::types::{CreateJiraProjectInputGql, JiraProjectGql, UpdateJiraProjectInputGql};
 
 /// GraphQL mutation for Jira projects.
+#[derive(Default)]
 pub struct JiraProjectMutation;
 
 #[Object]
@@ -40,6 +20,18 @@ impl JiraProjectMutation {
         input: CreateJiraProjectInputGql,
     ) -> Result<JiraProjectGql> {
         let usecase = ctx.data_unchecked::<Arc<dyn JiraProjectCreateUseCase>>();
+        let project = usecase.execute(input.into()).await?;
+        Ok(JiraProjectGql::from(project))
+    }
+
+    /// Updates an existing Jira project.
+    #[graphql(name = "updateJiraProject")]
+    async fn update_jira_project(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateJiraProjectInputGql,
+    ) -> Result<JiraProjectGql> {
+        let usecase = ctx.data_unchecked::<Arc<dyn JiraProjectUpdateUseCase>>();
         let project = usecase.execute(input.into()).await?;
         Ok(JiraProjectGql::from(project))
     }

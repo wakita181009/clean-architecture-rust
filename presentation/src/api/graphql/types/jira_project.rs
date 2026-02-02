@@ -1,5 +1,6 @@
 use async_graphql::{ID, Object};
 
+use application::dto::jira::JiraProjectDto;
 use domain::entity::jira::JiraProject;
 
 /// GraphQL representation of a Jira project.
@@ -31,6 +32,16 @@ impl From<JiraProject> for JiraProjectGql {
             id: project.id.value(),
             key: project.key.value().to_string(),
             name: project.name.value().to_string(),
+        }
+    }
+}
+
+impl From<JiraProjectDto> for JiraProjectGql {
+    fn from(dto: JiraProjectDto) -> Self {
+        Self {
+            id: dto.id,
+            key: dto.key,
+            name: dto.name,
         }
     }
 }

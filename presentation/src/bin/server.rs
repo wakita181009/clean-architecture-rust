@@ -14,13 +14,18 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use application::usecase::command::jira::JiraProjectCreateUseCaseImpl;
+use application::usecase::command::jira::{
+    JiraProjectCreateUseCaseImpl, JiraProjectUpdateUseCaseImpl,
+};
 use application::usecase::query::jira::{
     JiraIssueFindByIdsQueryUseCaseImpl, JiraIssueListQueryUseCaseImpl,
+    JiraProjectFindByIdsQueryUseCaseImpl, JiraProjectListQueryUseCaseImpl,
 };
 use infrastructure::config::DatabaseConfig;
 use infrastructure::repository::command::jira::JiraProjectRepositoryImpl;
-use infrastructure::repository::query::jira::JiraIssueQueryRepositoryImpl;
+use infrastructure::repository::query::jira::{
+    JiraIssueQueryRepositoryImpl, JiraProjectQueryRepositoryImpl,
+};
 use presentation::api::graphql::{AppSchema, build_schema};
 
 /// GraphQL server for Jira issue management.
@@ -65,18 +70,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Database migrations completed");
 
     // Initialize repositories
-    let issue_repository = Arc::new(JiraIssueQueryRepositoryImpl::new(pool.clone()));
-    let project_repository = Arc::new(JiraProjectRepositoryImpl::new(pool.clone()));
+    let issue_query_repository = Arc::new(JiraIssueQueryRepositoryImpl::new(pool.clone()));
+    let project_query_repository = Arc::new(JiraProjectQueryRepositoryImpl::new(pool.clone()));
+    let project_command_repository = Arc::new(JiraProjectRepositoryImpl::new(pool.clone()));
 
     // Initialize use cases
-    let find_by_ids_usecase = Arc::new(JiraIssueFindByIdsQueryUseCaseImpl::new(
-        issue_repository.clone(),
+    let issue_find_by_ids_usecase = Arc::new(JiraIssueFindByIdsQueryUseCaseImpl::new(
+        issue_query_repository.clone(),
     ));
-    let list_usecase = Arc::new(JiraIssueListQueryUseCaseImpl::new(issue_repository.clone()));
-    let create_project_usecase = Arc::new(JiraProjectCreateUseCaseImpl::new(project_repository));
+    let issue_list_usecase = Arc::new(JiraIssueListQueryUseCaseImpl::new(issue_query_repository));
+    let project_find_by_ids_usecase = Arc::new(JiraProjectFindByIdsQueryUseCaseImpl::new(
+        project_query_repository.clone(),
+    ));
+    let project_list_usecase = Arc::new(JiraProjectListQueryUseCaseImpl::new(
+        project_query_repository,
+    ));
+    let create_project_usecase = Arc::new(JiraProjectCreateUseCaseImpl::new(
+        project_command_repository.clone(),
+    ));
+    let update_project_usecase = Arc::new(JiraProjectUpdateUseCaseImpl::new(
+        project_command_repository,
+    ));
 
     // Build GraphQL schema
-    let schema = build_schema(find_by_ids_usecase, list_usecase, create_project_usecase);
+    let schema = build_schema(
+        issue_find_by_ids_usecase,
+        issue_list_usecase,
+        project_find_by_ids_usecase,
+        project_list_usecase,
+        create_project_usecase,
+        update_project_usecase,
+    );
 
     // Configure CORS
     let cors = CorsLayer::new()

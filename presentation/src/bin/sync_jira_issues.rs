@@ -10,14 +10,14 @@ use infrastructure::config::DatabaseConfig;
 use infrastructure::repository::command::jira::{
     JiraIssueRepositoryImpl, JiraProjectRepositoryImpl,
 };
-use presentation::cli::{SyncIssuesArgs, run_sync_issues};
+use presentation::cli::{SyncJiraIssuesArgs, run_sync_jira_issues};
 
 /// CLI tool for syncing Jira issues from the Jira API.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[command(flatten)]
-    sync: SyncIssuesArgs,
+    sync: SyncJiraIssuesArgs,
 }
 
 #[tokio::main]
@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Run sync
-    run_sync_issues(sync_usecase, &args.sync).await?;
+    run_sync_jira_issues(sync_usecase, &args.sync).await?;
 
     Ok(())
 }

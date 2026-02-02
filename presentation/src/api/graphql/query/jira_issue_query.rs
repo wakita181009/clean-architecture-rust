@@ -11,6 +11,7 @@ use crate::api::graphql::types::{JiraIssueGql, JiraIssueListGql};
 pub type JiraIssueDataLoader = DataLoader<crate::api::graphql::dataloader::JiraIssueLoader>;
 
 /// GraphQL Query root for Jira issues.
+#[derive(Default)]
 pub struct JiraIssueQuery;
 
 #[Object]

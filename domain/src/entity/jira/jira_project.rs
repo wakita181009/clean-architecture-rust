@@ -27,6 +27,21 @@ impl JiraProject {
         let name = JiraProjectName::of(name)?;
         Ok(Self { id, key, name })
     }
+
+    /// Returns a new JiraProject with updated key and name, keeping the same id.
+    pub fn update(
+        self,
+        key: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Result<Self, JiraError> {
+        let key = JiraProjectKey::of(key)?;
+        let name = JiraProjectName::of(name)?;
+        Ok(Self {
+            id: self.id,
+            key,
+            name,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -92,5 +107,28 @@ mod tests {
     fn test_jira_project_of_empty_name() {
         let project = JiraProject::of("100", "PROJ", "");
         assert!(project.is_err());
+    }
+
+    #[test]
+    fn test_jira_project_update_valid() {
+        let project = JiraProject::of("100", "PROJ", "My Project").unwrap();
+        let updated = project.update("NEWKEY", "New Name").unwrap();
+        assert_eq!(updated.id.value(), 100);
+        assert_eq!(updated.key.value(), "NEWKEY");
+        assert_eq!(updated.name.value(), "New Name");
+    }
+
+    #[test]
+    fn test_jira_project_update_invalid_key() {
+        let project = JiraProject::of("100", "PROJ", "My Project").unwrap();
+        let updated = project.update("", "New Name");
+        assert!(updated.is_err());
+    }
+
+    #[test]
+    fn test_jira_project_update_invalid_name() {
+        let project = JiraProject::of("100", "PROJ", "My Project").unwrap();
+        let updated = project.update("NEWKEY", "");
+        assert!(updated.is_err());
     }
 }
